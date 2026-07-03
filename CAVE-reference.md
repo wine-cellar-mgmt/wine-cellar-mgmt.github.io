@@ -30,27 +30,44 @@ CAVE는 개인 와인 셀러 관리 PWA다. 이 문서는 작업 시 배경 맥�
 - **drink_log**: id, wine_id, wine_name, wine_vintage, cellar_name, slot, date, companions,
   occasion, rating, review, image_url
 - **purchase_history**: id, wine_id, purchase_date, price, qty, notes
+- **price_history**: id, wine_id(→wines cascade), recorded_at(date), wine_searcher_price,
+  vivino_price, vivino_rating, source('seed'|'app'|'auto'), created_at.
+  앱에서 가격 변경 시('app') + 매달 6일 Cowork 스케줄('auto') 기록. 2026-07-03 현재가 시드 150건.
 
 ## 파일 구조
 ```
+public/sw.js               ← 서비스워커 (네트워크 우선 + 캐시 폴백, API는 캐시 안 함)
 src/
-├── App.jsx                ← 라우팅, 세션, CRUD, moveWine(분할/병합), renameWines, 모달 제어
+├── App.jsx                ← 라우팅, 세션, CRUD(낙관적 업데이트+실패 롤백, winesRef 단일 소스),
+│                            moveWine(분할/병합), renameWines/mergeWines(배치), 이미지 Storage 업로드
+│                            인터셉트(resolveImage), 가격 변경 시 price_history 기록,
+│                            SharedGallery·BulkImportModal은 React.lazy 코드 스플리팅
 ├── index.css
-├── main.jsx
+├── main.jsx               ← 서비스워커 등록 포함
 ├── config/cellars.js      ← 테마 T, 헬퍼, BOTTLE_SIZES/bottleLabel/bottleBadge,
 │                            getDrinkingStatus, compressImage(EXIF 보정), callAI
-├── lib/supabase.js        ← Auth, callProxy, CRUD, wineToDb/dbToWine, get_public_wines
+├── lib/supabase.js        ← Auth, callProxy, CRUD, 배치(deleteWines/upsertWines),
+│                            price_history(load/insert), uploadImage(Storage), wineToDb/dbToWine
 └── components/
     ├── Header.jsx
     ├── Dashboard.jsx
     ├── CellarView.jsx
-    ├── Views.jsx          ← ListView(이름묶기/통일, 용량 배지), SearchView,
-    │                        DrinkLogView(삭제), StatisticsView(수익률%)
-    ├── SharedGallery.jsx  ← 공개 읽기 전용 갤러리 (?gallery=1)
+    ├── Views.jsx          ← 배럴 (views/로 분리 재수출)
+    ├── views/
+    │   ├── SearchView.jsx        ← 동의어 검색 (useMemo)
+    │   ├── ListView.jsx          ← 이름묶기/통일/병합, 시장가 일괄 업데이트(callAI 경유)
+    │   ├── DrinkLogView.jsx
+    │   ├── StatisticsView.jsx    ← 수익률%·컬렉션 가치 평가 (집계 useMemo)
+    │   └── DrinkingWindowView.jsx← 음용 적기 + 🔮 추정
+    ├── SharedGallery.jsx  ← 공개 읽기 전용 갤러리 (?gallery=1, lazy)
     ├── ui.jsx
     └── modals/
         ├── AddWineModal.jsx
-        └── Modals.jsx     ← DetailModal(이동/용량/배지), DrinkModal, SettingsModal, BulkImportModal
+        ├── Modals.jsx            ← 배럴 (개별 파일 재수출)
+        ├── DetailModal.jsx       ← 이동/용량/배지 + 📈 가격 추이 그래프(price_history)
+        ├── DrinkModal.jsx
+        ├── SettingsModal.jsx     ← 로그아웃 + 📥 CSV 내보내기(와인 목록/음주 기록)
+        └── BulkImportModal.jsx   ← 사진 일괄 입력 (lazy)
 ```
 
 ## 핵심 규칙 요약
@@ -88,10 +105,21 @@ src/
   타입·국가별 시장가 분포. DB 변경 없이 기존 필드 집계. totalMarket>0일 때만 노출.
 - 대시보드 가치 카드 정정(커밋 539df37): 평가 차익을 구매가·시장가가 모두 있는 와인만으로 계산
   (한쪽만 있으면 제외, 음수 빨강 표시). 상단 합계 카드 라벨에 '구매가/시장가 입력 N종' 표기.
+- 대규모 리팩터링 + 신기능 3종(2026-07-03):
+  * 구조: Views/Modals 파일 분리(배럴 유지), CRUD 낙관적 업데이트 실패 롤백, winesRef 단일
+    소스로 stale closure 제거, 배치 DB(deleteWines .in / upsertWines 배열), priceUpdate 리스너 1회 등록.
+  * 성능: 무거운 집계 useMemo, SharedGallery·BulkImportModal lazy 스플리팅, 서비스워커(sw.js),
+    이미지 base64 → Storage(wine-images 버킷) 자동 업로드(resolveImage, 실패 시 원본 유지).
+  * ListView 시장가 일괄 업데이트를 직접 API 호출(localStorage 키) → callAI(프록시) 경유로 교정.
+  * 신기능: price_history 테이블 + DetailModal 📈 시장가 추이 SVG 그래프(기록 2건 이상 시 표시),
+    SettingsModal 📥 CSV 내보내기(UTF-8 BOM 엑셀 호환), Cowork 스케줄
+    `cave-monthly-price-refresh`(매달 6일 09:00, 전체 152종 웹 검색 → wines 갱신 + price_history 'auto' 기록).
+    ※ 스케줄은 Cowork 앱이 켜져 있어야 실행됨(꺼져 있으면 다음 실행 시점에 수행).
 
 ## Supabase 서버 측 구성 (코드 저장소 밖)
 - Edge Function: `anthropic-proxy` (verify_jwt=true)
 - Secret: `ANTHROPIC_API_KEY`
+- Storage 버킷: `wine-images` (public read, authenticated write). 이미지 URL만 DB에 저장.
 - RPC: `get_public_wines()`(공개 갤러리, bottle_size 포함), `get_shared_wine(p_token)`
 - RLS: 세 테이블 "authenticated full access"
 - 마이그레이션: RETURNS TABLE 변경 시 drop function 후 create function,

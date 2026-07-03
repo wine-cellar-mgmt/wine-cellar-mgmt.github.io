@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { T, uid } from './config/cellars.js'
 import {
   loadWines, loadDrinkLog,
-  upsertWine, deleteWine, insertDrink, deleteDrink,
+  upsertWine, upsertWines, deleteWine, deleteWines, insertDrink, deleteDrink,
+  insertPriceHistory, uploadImage,
   signIn, getSession, onAuthChange
 } from './lib/supabase.js'
 
@@ -11,10 +12,21 @@ import Dashboard from './components/Dashboard.jsx'
 import CellarView from './components/CellarView.jsx'
 import { SearchView, ListView, DrinkLogView, StatisticsView, DrinkingWindowView } from './components/Views.jsx'
 import AddWineModal from './components/modals/AddWineModal.jsx'
-import { DetailModal, DrinkModal, SettingsModal, BulkImportModal } from './components/modals/Modals.jsx'
+import { DetailModal } from './components/modals/DetailModal.jsx'
+import { DrinkModal } from './components/modals/DrinkModal.jsx'
+import { SettingsModal } from './components/modals/SettingsModal.jsx'
 import { Toast } from './components/ui.jsx'
-import SharedGallery from './components/SharedGallery.jsx'
 import './index.css'
+
+// 코드 스플리팅 — 갤러리 방문자는 앱 본체를, 앱 사용자는 갤러리를 내려받지 않는다
+const SharedGallery = lazy(() => import('./components/SharedGallery.jsx'))
+const BulkImportModal = lazy(() => import('./components/modals/BulkImportModal.jsx').then(m => ({ default: m.BulkImportModal })))
+
+const Loading = ({ msg = '🍷' }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: T.bg, color: T.gold, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', letterSpacing: '0.1em' }}>
+    {msg}
+  </div>
+)
 
 // ── 로그인 화면 ──────────────────────────────────────────────────
 function LoginScreen({ onSignedIn }) {
@@ -58,13 +70,20 @@ function LoginScreen({ onSignedIn }) {
   )
 }
 
+// 가격 필드 — 변경 시 price_history에 자동 기록
+const PRICE_FIELDS = ['wineSearcherPrice', 'vivinoPrice', 'vivinoRating']
+
 export default function App() {
   // 공개 갤러리 모드 — 로그인 없이 읽기 전용 진입
   //   ?gallery=1            → 시장가 포함 갤러리
   //   ?gallery=1&price=0    → 시장가까지 숨긴 갤러리 (구매가는 어느 쪽이든 항상 숨김)
   const _params = new URLSearchParams(window.location.search)
   const isGallery = _params.get('gallery') === '1'
-  if (isGallery) return <SharedGallery hidePrice={_params.get('price') === '0'} />
+  if (isGallery) return (
+    <Suspense fallback={<Loading />}>
+      <SharedGallery hidePrice={_params.get('price') === '0'} />
+    </Suspense>
+  )
 
   const [session, setSession]   = useState(undefined) // undefined=확인중, null=로그아웃, obj=로그인
   const [wines, setWines]       = useState([])
@@ -78,17 +97,24 @@ export default function App() {
   const [modal, setModal]     = useState(null) // {type, ...data}
   const [toast, setToast]     = useState(null)
 
+  // wines의 단일 진실 소스 — 연속 호출(moveWine 등)에서 stale closure를 막는다.
+  // 모든 wines 변경은 applyWines를 통해서만 한다.
+  const winesRef = useRef([])
+  const applyWines = useCallback((updater) => {
+    winesRef.current = typeof updater === 'function' ? updater(winesRef.current) : updater
+    setWines(winesRef.current)
+  }, [])
+
   const showToast = useCallback((msg, type = 'info', duration = 3000) => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), duration)
   }, [])
 
-  // ── 시장가 일괄 업데이트 이벤트 리스너 ─────────────────────
+  // ── 시장가 일괄 업데이트 이벤트 리스너 (1회 등록 — winesRef로 최신 상태 참조) ──
   useEffect(() => {
     const handler = async (e) => {
       const { id, wineSearcherPrice, vivinoPrice, vivinoRating } = e.detail
-      const wine = wines.find(w => w.id === id)
-      if (!wine) return
+      if (!winesRef.current.find(w => w.id === id)) return
       const updates = {}
       if (wineSearcherPrice) updates.wineSearcherPrice = wineSearcherPrice
       if (vivinoPrice) updates.vivinoPrice = vivinoPrice
@@ -97,7 +123,7 @@ export default function App() {
     }
     window.addEventListener('cave:priceUpdate', handler)
     return () => window.removeEventListener('cave:priceUpdate', handler)
-  }, [wines])
+  }, [])
 
   // ── 세션 확인 + 로그인 상태 구독 ───────────────────────────────
   useEffect(() => {
@@ -113,7 +139,7 @@ export default function App() {
       setLoading(true)
       try {
         const [w, l] = await Promise.all([loadWines(), loadDrinkLog()])
-        setWines(w); setDrinkLog(l)
+        applyWines(w); setDrinkLog(l)
         setSyncStatus('synced')
       } catch (e) {
         console.error('Load error:', e)
@@ -129,25 +155,67 @@ export default function App() {
   const winesIn  = (cid, slot) => wines.filter(w => w.cellarId === cid && w.slot === slot)
   const bottlesIn = (cid, slot) => winesIn(cid, slot).reduce((s, w) => s + (w.qty || 1), 0)
 
-  // ── Wine CRUD ────────────────────────────────────────────────
+  // base64 dataURL 이미지는 Storage에 올리고 URL로 치환 (DB 비대화 방지).
+  // 업로드 실패 시 원본 유지 — 기능은 항상 동작한다.
+  async function resolveImage(w, prefix = 'wine') {
+    if (w.imageUrl && w.imageUrl.startsWith('data:')) {
+      try { return { ...w, imageUrl: await uploadImage(w.imageUrl, prefix) } }
+      catch (e) { console.warn('[Image] Storage 업로드 실패 — 원본 유지:', e); return w }
+    }
+    return w
+  }
+
+  // 가격 필드가 실제로 바뀌었으면 히스토리 기록 (실패해도 본 작업에 영향 없음)
+  function recordPriceHistory(base, updated, updates) {
+    const changed = PRICE_FIELDS.some(k => k in updates && (updates[k] || null) !== (base[k] || null))
+    if (!changed) return
+    insertPriceHistory([{
+      wine_id: updated.id,
+      wine_searcher_price: updated.wineSearcherPrice || null,
+      vivino_price: updated.vivinoPrice || null,
+      vivino_rating: updated.vivinoRating || null,
+      source: 'app',
+    }]).catch(() => {})
+  }
+
+  // ── Wine CRUD (낙관적 업데이트 + 실패 시 롤백) ────────────────
   async function addWine(wine) {
-    const w = { ...wine, id: wine.id || uid() }
-    setWines(p => [...p, w])
+    const w0 = { ...wine, id: wine.id || uid() }
+    applyWines(p => [...p, w0])
+    const w = await resolveImage(w0)
+    if (w !== w0) applyWines(p => p.map(x => x.id === w.id ? w : x))
     try { await upsertWine(w); setSyncStatus('synced') }
-    catch { showToast('⚠ 저장 실패', 'error') }
+    catch {
+      applyWines(p => p.filter(x => x.id !== w0.id))
+      showToast('⚠ 저장 실패 — 추가를 되돌렸습니다', 'error')
+    }
   }
 
   async function updateWine(id, updates) {
-    const updated = { ...wines.find(w => w.id === id), ...updates }
-    setWines(p => p.map(w => w.id === id ? updated : w))
-    try { await upsertWine(updated); setSyncStatus('synced') }
-    catch { showToast('⚠ 수정 실패', 'error') }
+    const base = winesRef.current.find(w => w.id === id)
+    if (!base) return
+    let updated = { ...base, ...updates }
+    applyWines(p => p.map(w => w.id === id ? updated : w))
+    updated = await resolveImage(updated)
+    applyWines(p => p.map(w => w.id === id ? updated : w))
+    try {
+      await upsertWine(updated)
+      setSyncStatus('synced')
+      recordPriceHistory(base, updated, updates)
+    } catch {
+      applyWines(p => p.map(w => w.id === id ? base : w))
+      showToast('⚠ 수정 실패 — 변경을 되돌렸습니다', 'error')
+    }
   }
 
   async function removeWine(id) {
-    setWines(p => p.filter(w => w.id !== id))
+    const base = winesRef.current.find(w => w.id === id)
+    applyWines(p => p.filter(w => w.id !== id))
     try { await deleteWine(id); setSyncStatus('synced') }
-    catch { showToast('⚠ 삭제 실패', 'error') }
+    catch {
+      if (base) applyWines(p => [...p, base])
+      showToast('⚠ 삭제 실패 — 되돌렸습니다', 'error')
+    }
   }
 
   // 위치 이동 — moveQty가 전체보다 적으면 분할.
@@ -160,7 +228,7 @@ export default function App() {
     const isSame = (a, b) =>
       (a.name || '').trim() === (b.name || '').trim() &&
       (a.vintage || null) === (b.vintage || null)
-    const target = wines.find(w =>
+    const target = winesRef.current.find(w =>
       w.id !== wine.id &&
       w.cellarId === toCellarId &&
       String(w.slot) === String(toSlot) &&
@@ -192,67 +260,113 @@ export default function App() {
   }
 
   async function drinkWine(wine, record) {
-    // Decrement qty
-    const newQty = (wine.qty || 1) - 1
+    // Decrement qty (실패 시 롤백하고 기록도 중단)
+    const base = winesRef.current.find(w => w.id === wine.id) || wine
+    const newQty = (base.qty || 1) - 1
     if (newQty <= 0) {
-      setWines(p => p.filter(w => w.id !== wine.id))
-      try { await deleteWine(wine.id) } catch {}
+      applyWines(p => p.filter(w => w.id !== wine.id))
+      try { await deleteWine(wine.id); setSyncStatus('synced') }
+      catch {
+        applyWines(p => [...p, base])
+        showToast('⚠ 차감 실패 — 되돌렸습니다', 'error')
+        return
+      }
     } else {
-      const updated = { ...wine, qty: newQty }
-      setWines(p => p.map(w => w.id === wine.id ? updated : w))
-      try { await upsertWine(updated) } catch {}
+      const updated = { ...base, qty: newQty }
+      applyWines(p => p.map(w => w.id === wine.id ? updated : w))
+      try { await upsertWine(updated); setSyncStatus('synced') }
+      catch {
+        applyWines(p => p.map(w => w.id === wine.id ? base : w))
+        showToast('⚠ 차감 실패 — 되돌렸습니다', 'error')
+        return
+      }
     }
-    // Add drink record
-    const r = { ...record, id: record.id || uid() }
+    // Add drink record (사진은 Storage에 업로드)
+    let r = { ...record, id: record.id || uid() }
+    if (r.imageUrl && r.imageUrl.startsWith('data:')) {
+      try { r.imageUrl = await uploadImage(r.imageUrl, 'drink') } catch { /* 원본 유지 */ }
+    }
     setDrinkLog(p => [r, ...p])
     try { await insertDrink(r); showToast('🍷 음주 기록 저장됨', 'success') }
     catch { showToast('⚠ 기록 저장 실패', 'error') }
   }
 
   async function removeManyWines(ids) {
-    setWines(p => p.filter(w => !ids.includes(w.id)))
-    for (const id of ids) {
-      try { await deleteWine(id) } catch {}
+    const prev = winesRef.current
+    applyWines(p => p.filter(w => !ids.includes(w.id)))
+    try {
+      await deleteWines(ids)  // 1번의 왕복으로 일괄 삭제
+      setSyncStatus('synced')
+      showToast(`🗑 ${ids.length}개 삭제 완료`, 'success')
+    } catch {
+      applyWines(() => prev)
+      showToast('⚠ 삭제 실패 — 되돌렸습니다', 'error')
     }
-    showToast(`🗑 ${ids.length}개 삭제 완료`, 'success')
   }
 
-  // 비슷한 이름 묶기 — 선택된 와인들의 이름을 하나로 통일
+  // 비슷한 이름 묶기 — 선택된 와인들의 이름을 하나로 통일 (배열 upsert 1회)
   async function renameWines(ids, newName) {
     if (!ids.length || !newName) return
-    for (const id of ids) {
-      const w = wines.find(x => x.id === id)
-      if (w && w.name !== newName) await updateWine(id, { name: newName })
+    const targets = winesRef.current.filter(w => ids.includes(w.id) && w.name !== newName)
+    if (!targets.length) return
+    const prev = winesRef.current
+    const renamed = targets.map(w => ({ ...w, name: newName }))
+    const renamedIds = new Set(targets.map(w => w.id))
+    applyWines(p => p.map(w => renamedIds.has(w.id) ? { ...w, name: newName } : w))
+    try {
+      await upsertWines(renamed)
+      setSyncStatus('synced')
+      showToast(`✓ ${targets.length}개 이름 통일 완료`, 'success')
+    } catch {
+      applyWines(() => prev)
+      showToast('⚠ 이름 통일 실패 — 되돌렸습니다', 'error')
     }
-    showToast(`✓ ${ids.length}개 이름 통일 완료`, 'success')
   }
 
   // 수준 3: 진짜 중복 병합 — 이름·빈티지·셀러·칸이 모두 같은 레코드들을 한 레코드로 합치고 병 수 합산
   async function mergeWines(ids) {
     if (!ids || ids.length < 2) return
-    const group = ids.map(id => wines.find(w => w.id === id)).filter(Boolean)
+    const group = ids.map(id => winesRef.current.find(w => w.id === id)).filter(Boolean)
     if (group.length < 2) return
     const keep = group[0]
     const totalQty = group.reduce((s, w) => s + (w.qty || 1), 0)
-    await updateWine(keep.id, { qty: totalQty })
-    for (const w of group.slice(1)) await removeWine(w.id)
-    showToast(`🔗 ${group.length}개 레코드를 ${totalQty}병으로 병합`, 'success')
+    const restIds = group.slice(1).map(w => w.id)
+    const prev = winesRef.current
+    applyWines(p => p.filter(w => !restIds.includes(w.id)).map(w => w.id === keep.id ? { ...w, qty: totalQty } : w))
+    try {
+      await upsertWine({ ...keep, qty: totalQty })
+      await deleteWines(restIds)
+      setSyncStatus('synced')
+      showToast(`🔗 ${group.length}개 레코드를 ${totalQty}병으로 병합`, 'success')
+    } catch {
+      applyWines(() => prev)
+      showToast('⚠ 병합 실패 — 되돌렸습니다', 'error')
+    }
   }
 
   async function removeDrink(id) {
+    const prev = drinkLog
     setDrinkLog(p => p.filter(r => r.id !== id))
-    try { await deleteDrink(id) } catch {}
+    try { await deleteDrink(id) }
+    catch { setDrinkLog(prev); showToast('⚠ 삭제 실패 — 되돌렸습니다', 'error') }
   }
 
-  // Bulk add
+  // Bulk add — 이미지 업로드 후 배열 upsert 1회
   async function addManyWines(list) {
-    for (const wine of list) {
-      const w = { ...wine, id: wine.id || uid() }
-      setWines(p => [...p, w])
-      try { await upsertWine(w) } catch {}
-    }
+    let ws = list.map(w => ({ ...w, id: w.id || uid() }))
+    applyWines(p => [...p, ...ws])
     setModal(null)
-    showToast(`✓ ${list.length}종 추가 완료`, 'success')
+    ws = await Promise.all(ws.map(w => resolveImage(w)))
+    const byId = new Map(ws.map(w => [w.id, w]))
+    applyWines(p => p.map(w => byId.get(w.id) || w))
+    try {
+      await upsertWines(ws)
+      setSyncStatus('synced')
+      showToast(`✓ ${list.length}종 추가 완료`, 'success')
+    } catch {
+      applyWines(p => p.filter(w => !byId.has(w.id)))
+      showToast('⚠ 저장 실패 — 추가를 되돌렸습니다', 'error')
+    }
   }
 
   // ── Modal helpers ────────────────────────────────────────────
@@ -264,20 +378,12 @@ export default function App() {
   const detailWine = modal?.type === 'detail' ? wines.find(w => w.id === modal.id) : null
 
   // 세션 확인 중
-  if (session === undefined) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: T.bg, color: T.gold, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', letterSpacing: '0.1em' }}>
-      🍷
-    </div>
-  )
+  if (session === undefined) return <Loading />
 
   // 로그아웃 상태 → 로그인 화면
   if (session === null) return <LoginScreen onSignedIn={() => {}} />
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: T.bg, color: T.gold, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', letterSpacing: '0.1em' }}>
-      🍷 셀러를 열고 있습니다...
-    </div>
-  )
+  if (loading) return <Loading msg="🍷 셀러를 열고 있습니다..." />
 
   const shared = { wines, drinkLog, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, openDrink, goSlot }
 
@@ -306,10 +412,12 @@ export default function App() {
         <AddWineModal pre={modal.pre || {}} onAdd={async w => { await addWine(w); setModal(null) }} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'bulk' && (
-        <BulkImportModal onAddMany={addManyWines} onClose={() => setModal(null)} />
+        <Suspense fallback={null}>
+          <BulkImportModal onAddMany={addManyWines} onClose={() => setModal(null)} />
+        </Suspense>
       )}
       {modal?.type === 'settings' && (
-        <SettingsModal onClose={() => setModal(null)} />
+        <SettingsModal wines={wines} drinkLog={drinkLog} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'drink' && (
         <DrinkModal wine={modal.wine} onConfirm={record => { drinkWine(modal.wine, record); setModal(null) }} onClose={() => setModal(null)} />

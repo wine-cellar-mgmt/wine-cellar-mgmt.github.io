@@ -104,6 +104,49 @@ export async function deleteWine(id) {
   if (error) throw error
 }
 
+// ── 배치 작업 (N번 왕복 → 1번) ───────────────────────────────────
+export async function deleteWines(ids) {
+  if (!ids?.length) return
+  const { error } = await supabase.from('wines').delete().in('id', ids)
+  if (error) throw error
+}
+
+export async function upsertWines(wines) {
+  if (!wines?.length) return
+  const { error } = await supabase.from('wines').upsert(wines.map(wineToDb))
+  if (error) throw error
+}
+
+// ── 가격 히스토리 ────────────────────────────────────────────────
+// price_history: 시장가·Vivino 가격 변동 이력. 매달 자동 갱신 + 앱 내 가격 변경 시 기록.
+export async function loadPriceHistory(wineId) {
+  const { data, error } = await supabase.from('price_history')
+    .select('recorded_at, wine_searcher_price, vivino_price, vivino_rating, source')
+    .eq('wine_id', wineId)
+    .order('recorded_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function insertPriceHistory(rows) {
+  if (!rows?.length) return
+  const { error } = await supabase.from('price_history').insert(rows)
+  if (error) throw error
+}
+
+// ── 이미지 Storage 업로드 ────────────────────────────────────────
+// base64 dataURL을 wine-images 버킷에 올리고 공개 URL을 반환.
+// DB에 base64를 직접 저장하면 loadWines가 비대해지므로 반드시 URL만 저장한다.
+export async function uploadImage(dataUrl, keyPrefix = 'wine') {
+  const blob = await (await fetch(dataUrl)).blob()
+  const path = `${keyPrefix}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`
+  const { error } = await supabase.storage.from('wine-images')
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+  if (error) throw error
+  const { data } = supabase.storage.from('wine-images').getPublicUrl(path)
+  return data.publicUrl
+}
+
 export async function insertDrink(record) {
   const { error } = await supabase.from('drink_log').insert(drinkToDb(record))
   if (error) throw error
@@ -125,58 +168,4 @@ export async function loadWineByShareToken(token) {
   return dbToWine(data)
 }
 
-// ── camelCase ↔ snake_case ───────────────────────────────────────
-function wineToDb(w) {
-  return {
-    id: w.id, name: w.name, vintage: w.vintage || null,
-    qty: w.qty || 1, price: w.price || 0,
-    purchase_date: w.purchaseDate || null,
-    cellar_id: w.cellarId, slot: w.slot,
-    image_url: w.imageUrl || '', notes: w.notes || '',
-    producer: w.producer || '', region: w.region || '',
-    country: w.country || '', grape: w.grape || '',
-    description: w.description || '',
-    vivino_price: w.vivinoPrice || null,
-    vivino_rating: w.vivinoRating || null,
-    wine_searcher_price: w.wineSearcherPrice || null,
-    drinking_from: w.drinkingFrom || null,
-    drinking_to: w.drinkingTo || null,
-    wine_type: w.wineType || 'red',
-    bottle_size: w.bottleSize || 750,
-    share_token: w.shareToken || null,
-  }
-}
-
-function dbToWine(r) {
-  return {
-    id: r.id, name: r.name, vintage: r.vintage, qty: r.qty, price: r.price,
-    purchaseDate: r.purchase_date, cellarId: r.cellar_id, slot: r.slot,
-    imageUrl: r.image_url, notes: r.notes, producer: r.producer,
-    region: r.region, country: r.country, grape: r.grape,
-    description: r.description, vivinoPrice: r.vivino_price,
-    vivinoRating: r.vivino_rating, wineSearcherPrice: r.wine_searcher_price,
-    drinkingFrom: r.drinking_from, drinkingTo: r.drinking_to,
-    wineType: r.wine_type, shareToken: r.share_token,
-    bottleSize: r.bottle_size || 750,
-  }
-}
-
-function drinkToDb(r) {
-  return {
-    id: r.id, wine_id: r.wineId || null, wine_name: r.wineName,
-    wine_vintage: r.wineVintage || null, cellar_name: r.cellarName || '',
-    slot: r.slot || '', date: r.date, companions: r.companions || '',
-    occasion: r.occasion || '', rating: r.rating || 0,
-    review: r.review || '', image_url: r.imageUrl || '',
-  }
-}
-
-function dbToDrink(r) {
-  return {
-    id: r.id, wineId: r.wine_id, wineName: r.wine_name,
-    wineVintage: r.wine_vintage, cellarName: r.cellar_name,
-    slot: r.slot, date: r.date, companions: r.companions,
-    occasion: r.occasion, rating: r.rating, review: r.review,
-    imageUrl: r.image_url, createdAt: r.created_at,
-  }
-}
+// ── camelCase ↔ snake_case ─────────────────────────────

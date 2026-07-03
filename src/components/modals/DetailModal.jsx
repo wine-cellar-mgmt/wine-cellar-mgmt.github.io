@@ -1,0 +1,362 @@
+import { useState, useEffect, useMemo } from 'react'
+import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge } from '../../config/cellars.js'
+import { callProxy, loadPriceHistory } from '../../lib/supabase.js'
+import { Btn, lbl, ImagePicker } from '../ui.jsx'
+
+// ── 가격 추이 그래프 (price_history 기반) ────────────────────────
+// 시장가(₩) 변동을 SVG 라인으로 표시. 기록이 2건 이상일 때만 노출.
+// 구매가가 있으면 점선 기준선으로 함께 표시한다.
+function PriceHistoryChart({ wine }) {
+  const [history, setHistory] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    loadPriceHistory(wine.id)
+      .then(h => { if (alive) setHistory(h) })
+      .catch(() => { if (alive) setHistory([]) })
+    return () => { alive = false }
+  }, [wine.id])
+
+  const series = useMemo(() => {
+    if (!history) return []
+    const byDate = {}
+    history.forEach(h => {
+      const v = Number(h.wine_searcher_price)
+      if (v > 0) byDate[h.recorded_at] = v // 같은 날짜는 마지막 기록 사용
+    })
+    return Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0]))
+  }, [history])
+
+  if (series.length < 2) return null
+
+  const W = 400, H = 130, PAD = { l: 8, r: 8, t: 16, b: 22 }
+  const values = series.map(([, v]) => v)
+  const purchase = wine.price > 0 ? wine.price : null
+  const domain = purchase ? [...values, purchase] : values
+  let min = Math.min(...domain), max = Math.max(...domain)
+  if (min === max) { min *= 0.95; max *= 1.05 }
+  const span = max - min
+  min -= span * 0.08; max += span * 0.08
+
+  const x = i => PAD.l + (i / (series.length - 1)) * (W - PAD.l - PAD.r)
+  const y = v => PAD.t + (1 - (v - min) / (max - min)) * (H - PAD.t - PAD.b)
+  const points = series.map(([, v], i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+
+  const first = values[0], last = values[values.length - 1]
+  const diff = last - first
+  const diffRate = first > 0 ? (diff / first * 100) : 0
+  const fmtDate = d => `${d.slice(2, 4)}.${d.slice(5, 7)}`
+  const kshort = n => n >= 100000000 ? `${(n / 100000000).toFixed(1)}억` : n >= 10000 ? `${Math.round(n / 10000)}만` : String(n)
+
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ fontSize: '0.66rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>📈 시장가 추이</div>
+        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: diff >= 0 ? '#4a8a5e' : '#c0392b' }}>
+          {diff >= 0 ? '+' : ''}{krw(diff)} ({diffRate >= 0 ? '+' : ''}{diffRate.toFixed(1)}%)
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {/* 구매가 기준선 */}
+        {purchase && purchase >= min && purchase <= max && (
+          <>
+            <line x1={PAD.l} y1={y(purchase)} x2={W - PAD.r} y2={y(purchase)} stroke={T.muted} strokeWidth="1" strokeDasharray="4 3" />
+            <text x={W - PAD.r} y={y(purchase) - 4} textAnchor="end" fontSize="9" fill={T.muted}>구매가 ₩{kshort(purchase)}</text>
+          </>
+        )}
+        {/* 시장가 라인 + 점 */}
+        <polyline points={points} fill="none" stroke={T.gold} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {series.map(([, v], i) => (
+          <circle key={i} cx={x(i)} cy={y(v)} r={i === series.length - 1 ? 3.5 : 2.5} fill={i === series.length - 1 ? T.gold : T.card} stroke={T.gold} strokeWidth="1.5" />
+        ))}
+        {/* 처음/마지막 값 라벨 */}
+        <text x={x(0)} y={y(first) - 7} textAnchor="start" fontSize="9.5" fill={T.mutedMid}>₩{kshort(first)}</text>
+        <text x={x(series.length - 1)} y={y(last) - 7} textAnchor="end" fontSize="9.5" fill={T.gold} fontWeight="700">₩{kshort(last)}</text>
+        {/* 날짜 축 */}
+        <text x={PAD.l} y={H - 6} textAnchor="start" fontSize="9" fill={T.muted}>{fmtDate(series[0][0])}</text>
+        <text x={W - PAD.r} y={H - 6} textAnchor="end" fontSize="9" fill={T.muted}>{fmtDate(series[series.length - 1][0])}</text>
+      </svg>
+      <div style={{ fontSize: '0.64rem', color: T.muted, marginTop: 4 }}>매달 6일 자동 갱신 + 앱에서 가격을 바꿀 때마다 기록됩니다 · {series.length}회 기록</div>
+    </div>
+  )
+}
+
+// ── Detail Modal ────────────────────────────────────────────────
+export function DetailModal({ wine, onClose, onDrink, onRemove, onUpdate, onMove, goSlot }) {
+  const [editing, setEditing] = useState(false)
+  const [moving, setMoving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [form, setForm] = useState({ ...wine })
+  const [aiLoad, setAiLoad] = useState(false)
+  // 위치 이동 전용 상태 (전체 수정 폼과 분리)
+  const [moveCellar, setMoveCellar] = useState(wine.cellarId)
+  const [moveSlot, setMoveSlot] = useState(wine.slot)
+  const [moveQty, setMoveQty] = useState(wine.qty || 1)
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const c = cellarById(wine.cellarId)
+  const curCellar = cellarById(form.cellarId)
+  const moveCellarObj = cellarById(moveCellar)
+
+  function startMove() {
+    // 항상 현재 위치·전체 병 수에서 시작
+    setMoveCellar(wine.cellarId)
+    setMoveSlot(wine.slot)
+    setMoveQty(wine.qty || 1)
+    setMoving(true)
+  }
+
+  function saveMove(qty) {
+    if (onMove) {
+      // 분할 이동 지원 (일부 병만 새 위치로)
+      onMove(wine, moveCellar, moveSlot, qty)
+    } else {
+      // onMove 미전달 시 폴백: 전체 이동
+      onUpdate({ ...wine, cellarId: moveCellar, slot: moveSlot })
+    }
+    setMoving(false)
+  }
+
+  async function runAI() {
+    if (!form.name?.trim()) return
+    setAiLoad(true)
+    try {
+      const q = form.vintage ? `${form.name} ${form.vintage}` : form.name
+      const data = await callProxy([{ role: 'user', content:
+            `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
+{"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"한국어 2문장","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
+
+가격 수집 (750ml 기준):
+- wine-searcher.com 한국 KRW
+- dailyshot.co.kr KRW
+- vivino.com USD → 현재 환율 KRW 환산
+세 가격 중 가장 높은 KRW → wineSearcherPrice
+vivino USD 원본 → vivinoPrice
+숫자만, 모르면 null` }],
+        2000, [{ type: 'web_search_20250305', name: 'web_search' }])
+      const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '{}'
+      const cleaned = text.replace(/```json|```/g, '').trim()
+      const match = cleaned.match(/\{[\s\S]*\}/)
+      if (match) {
+        const info = JSON.parse(match[0])
+        setForm(p => ({ ...p, ...info }))
+      }
+    } catch(e) {
+      console.error('[EditAI]', e)
+    }
+    setAiLoad(false)
+  }
+
+  function saveEdit() {
+    onUpdate({ ...form, vintage: parseInt(String(form.vintage)) || null, qty: parseInt(String(form.qty)) || 1, price: parseInt(String(form.price || '0').replace(/,/g, '')) || 0 })
+    setEditing(false)
+  }
+
+  const G = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }
+
+  if (editing) return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box">
+        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: T.cream, marginBottom: 20 }}>와인 수정</h2>
+        <div style={{ marginBottom: 12 }}>
+          <label style={lbl}>와인 이름</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={form.name} onChange={e => setF('name', e.target.value)} style={{ flex: 1 }} />
+            <button onClick={runAI} disabled={aiLoad || !form.name?.trim()} style={{
+              background: aiLoad || !form.name?.trim() ? T.muted : T.gold,
+              color: T.bg, border: 'none', borderRadius: 8, padding: '9px 14px',
+              fontSize: '0.8rem', fontWeight: 600,
+              cursor: aiLoad || !form.name?.trim() ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap', flexShrink: 0,
+            }}>{aiLoad ? '검색 중...' : '🔍 AI 검색'}</button>
+          </div>
+        </div>
+        <div style={G}>
+          <div><label style={lbl}>빈티지</label><input value={form.vintage || ''} onChange={e => setF('vintage', e.target.value)} type="number" /></div>
+          <div><label style={lbl}>수량</label><input value={form.qty || 1} onChange={e => setF('qty', e.target.value)} type="number" min="1" /></div>
+        </div>
+        <div style={G}>
+          <div><label style={lbl}>용량</label>
+            <select value={form.bottleSize || 750} onChange={e => setF('bottleSize', parseInt(e.target.value))}>
+              {BOTTLE_SIZES.map(b => <option key={b.ml} value={b.ml}>{b.label}</option>)}
+            </select>
+          </div>
+          <div></div>
+        </div>
+        <div style={G}>
+          <div><label style={lbl}>구매일</label><input value={form.purchaseDate || ''} onChange={e => setF('purchaseDate', e.target.value)} type="date" /></div>
+          <div><label style={lbl}>구매가격 (₩)</label><input value={form.price || ''} onChange={e => setF('price', e.target.value)} type="number" /></div>
+        </div>
+        <div style={G}>
+          <div><label style={lbl}>시장가 (₩) <span style={{ color: T.gold, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>Wine-Searcher·데일리샷 기준</span></label><input value={form.wineSearcherPrice || ''} onChange={e => setF('wineSearcherPrice', parseInt(e.target.value) || null)} type="number" placeholder="예: 1500000" /></div>
+          <div><label style={lbl}>Vivino 가격 ($) / 평점</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input value={form.vivinoPrice || ''} onChange={e => setF('vivinoPrice', parseFloat(e.target.value) || null)} type="number" placeholder="USD" style={{ flex: 1 }} />
+              <input value={form.vivinoRating || ''} onChange={e => setF('vivinoRating', parseFloat(e.target.value) || null)} type="number" placeholder="평점" step="0.1" min="0" max="5" style={{ width: 70 }} />
+            </div>
+          </div>
+        </div>
+        <div style={G}>
+          <div>
+            <label style={lbl}>셀러</label>
+            <select value={form.cellarId} onChange={e => { setF('cellarId', e.target.value); setF('slot', '1') }}>
+              {CELLARS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>칸 번호</label>
+            <select value={form.slot} onChange={e => setF('slot', e.target.value)}>
+              {getSlots(curCellar).map(s => <option key={s} value={s}>{s}번 칸</option>)}
+            </select>
+          </div>
+        </div>
+        <ImagePicker
+          imageUrl={form.imageUrl || ''} imgSrc="" imgSearching={false} imgErr={false}
+          onClear={() => setF('imageUrl', '')}
+          onUpload={dataUrl => setF('imageUrl', dataUrl)}
+          onRetry={() => {}}
+        />
+        <div style={{ marginBottom: 22 }}><label style={lbl}>메모</label><textarea value={form.notes || ''} onChange={e => setF('notes', e.target.value)} rows={2} /></div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn variant="ghost" onClick={() => setEditing(false)}>취소</Btn>
+          <Btn variant="gold" onClick={saveEdit}>저장</Btn>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (moving) {
+    const total = wine.qty || 1
+    const qty = Math.max(1, Math.min(parseInt(moveQty) || total, total))
+    const remaining = total - qty
+    const unchanged = moveCellar === wine.cellarId && moveSlot === wine.slot
+    return (
+      <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal-box" style={{ maxWidth: 440 }}>
+          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: T.cream, marginBottom: 6 }}>🚚 위치 이동</h2>
+          <div style={{ fontSize: '0.85rem', color: T.muted, marginBottom: 20 }}>{wine.name}{wine.vintage ? ` · ${wine.vintage}` : ''}</div>
+
+          {/* 현재 → 이동 후 위치 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ fontSize: '0.64rem', color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>현재</div>
+              <div style={{ fontSize: '0.85rem', color: T.cream }}>{c?.name}</div>
+              <div style={{ fontSize: '0.75rem', color: T.muted }}>{wine.slot}번 칸 · {total}병</div>
+            </div>
+            <div style={{ color: T.gold, fontSize: '1.2rem', flexShrink: 0 }}>→</div>
+            <div style={{ flex: 1, background: T.surface, border: `1px solid ${unchanged ? T.border : T.gold}66`, borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ fontSize: '0.64rem', color: unchanged ? T.muted : T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>이동 후</div>
+              <div style={{ fontSize: '0.85rem', color: T.cream }}>{moveCellarObj?.name}</div>
+              <div style={{ fontSize: '0.75rem', color: T.muted }}>{moveSlot}번 칸 · {qty}병</div>
+            </div>
+          </div>
+
+          <div style={G}>
+            <div>
+              <label style={lbl}>셀러</label>
+              <select value={moveCellar} onChange={e => { setMoveCellar(e.target.value); setMoveSlot('1') }}>
+                {CELLARS.map(cl => <option key={cl.id} value={cl.id}>{cl.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>칸 번호</label>
+              <select value={moveSlot} onChange={e => setMoveSlot(e.target.value)}>
+                {getSlots(moveCellarObj).map(s => <option key={s} value={s}>{s}번 칸</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* 병 수 선택 — 2병 이상일 때만 노출 */}
+          {total > 1 && (
+            <div style={{ marginTop: 12 }}>
+              <label style={lbl}>이동할 병 수 <span style={{ color: T.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(총 {total}병)</span></label>
+              <select value={qty} onChange={e => setMoveQty(parseInt(e.target.value))}>
+                {Array.from({ length: total }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}병{n === total ? ' (전체)' : ''}</option>)}
+              </select>
+              {remaining > 0 && (
+                <div style={{ fontSize: '0.74rem', color: T.muted, marginTop: 8 }}>
+                  {qty}병만 옮기고, <span style={{ color: T.cream }}>{c?.name} {wine.slot}번 칸</span>에 {remaining}병이 남습니다.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+            <Btn variant="ghost" onClick={() => setMoving(false)}>취소</Btn>
+            <Btn variant="gold" onClick={() => saveMove(qty)} disabled={unchanged}>이동</Btn>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 480 }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
+          {wine.imageUrl
+            ? <img src={wine.imageUrl} alt={wine.name} style={{ width: 80, height: 112, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
+            : <div style={{ width: 80, height: 112, background: T.surface, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', border: `1px solid ${T.border}` }}>🍷</div>
+          }
+          <div style={{ flex: 1 }}>
+            <button onClick={onClose} style={{ float: 'right', background: 'none', border: 'none', color: T.muted, fontSize: '1.1rem' }}>✕</button>
+            <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.25rem', color: T.cream, lineHeight: 1.3, marginBottom: 6 }}>{wine.name}</h2>
+            {wine.vintage && <div style={{ color: T.gold, fontWeight: 600, fontSize: '1rem', marginBottom: 6 }}>{wine.vintage}</div>}
+            {bottleBadge(wine.bottleSize) && <div style={{ display: 'inline-block', background: `${T.wine}33`, color: T.wineLight, border: `1px solid ${T.wine}`, borderRadius: 6, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 600, marginBottom: 6 }}>{bottleBadge(wine.bottleSize)}</div>}
+            {wine.producer && <div style={{ fontSize: '0.78rem', color: T.muted }}>{wine.producer}</div>}
+            {wine.region && <div style={{ fontSize: '0.78rem', color: T.muted }}>{wine.country ? `${wine.region}, ${wine.country}` : wine.region}</div>}
+            {wine.grape && <div style={{ fontSize: '0.76rem', color: T.muted, marginTop: 2 }}>🍇 {wine.grape}</div>}
+          </div>
+        </div>
+        {wine.description && <p style={{ fontSize: '0.84rem', color: T.text, fontStyle: 'italic', lineHeight: 1.6, borderLeft: `2px solid ${T.gold}`, paddingLeft: 12, marginBottom: 16 }}>{wine.description}</p>}
+
+        {/* Market price */}
+        {(wine.vivinoPrice || wine.wineSearcherPrice) && (() => {
+          const vp = wine.vivinoPrice, wp = wine.wineSearcherPrice
+          const krw = n => '₩' + Number(n).toLocaleString('ko-KR')
+          return (
+            <div style={{ background: T.surface, border: `1px solid ${T.gold}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.66rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontWeight: 600 }}>💰 시장가 (750ml 기준)</div>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {wp && <div><div style={{ fontSize: '0.68rem', color: T.muted }}>🇰🇷 한국 시장가</div><div style={{ fontWeight: 700, color: T.gold, fontSize: '1.05rem' }}>{krw(wp)}</div></div>}
+                {vp && <div><div style={{ fontSize: '0.68rem', color: T.muted }}>🌐 글로벌 (Wine-Searcher)</div><div style={{ fontWeight: 600, color: T.cream }}>${vp}{wine.vivinoRating && <span style={{ fontSize: '0.72rem', color: T.muted, marginLeft: 6 }}>⭐{wine.vivinoRating}</span>}</div></div>}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* 가격 추이 그래프 — 히스토리 2건 이상일 때만 표시됨 */}
+        <PriceHistoryChart wine={wine} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          {[['수량', `${wine.qty || 1}병`], ['구매가격', krw(wine.price)], ['구매일', kdate(wine.purchaseDate)], ['위치', `${c?.name} · ${wine.slot}번 칸`]].map(([k, v]) => (
+            <div key={k} style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: '0.66rem', color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{k}</div>
+              <div style={{ fontSize: '0.9rem', color: T.cream, fontWeight: 500 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {wine.notes && <div style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}`, marginBottom: 16 }}><div style={{ fontSize: '0.66rem', color: T.muted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>메모</div><div style={{ fontSize: '0.85rem', color: T.text }}>{wine.notes}</div></div>}
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${T.border}`, margin: '16px 0' }} />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn variant="ghost" size="sm" onClick={() => { goSlot(wine.cellarId, wine.slot); onClose() }}>📍 위치</Btn>
+            <Btn variant="ghost" size="sm" onClick={startMove}>🚚 이동</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => setEditing(true)}>✏️ 수정</Btn>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn variant="wine" size="sm" onClick={() => onDrink(wine)}>🍷 마심</Btn>
+            {confirmDelete
+              ? <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#c0392b22', border: '1px solid #c0392b', borderRadius: 8, padding: '4px 10px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#e07070' }}>삭제?</span>
+                  <button onClick={onRemove} style={{ background: '#c0392b', color: 'white', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: '0.78rem', cursor: 'pointer' }}>확인</button>
+                  <button onClick={() => setConfirmDelete(false)} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: '3px 8px', fontSize: '0.78rem', cursor: 'pointer' }}>취소</button>
+                </div>
+              : <Btn variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>삭제</Btn>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
