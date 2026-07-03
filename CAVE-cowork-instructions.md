@@ -49,6 +49,9 @@
   그래도 안 되면 outputs 경유로 우회 검증한다.
 - esbuild는 outputs에 로컬 설치해 쓴다(`npm i esbuild`, 전역 설치는 권한 오류). 저장소의
   node_modules는 Windows용 바이너리라 샌드박스에서 실행 불가.
+- **커밋 전 파일 잘림 검증 필수**: 마운트 캐시로 파일 끝부분이 잘린 채 커밋될 수 있다
+  (잘려도 문법상 유효하면 esbuild가 통과함 — 2026-07-04 supabase.js dbToDrink 유실 사고).
+  `git add` 후 `git show :파일 | tail`과 줄 수로 파일 끝이 온전한지 확인하고 커밋한다.
 - git 커밋 시 author 미설정이므로 `git -c user.name="유진웅" -c user.email="you.jinwoong@gmail.com" commit ...` 형식 사용.
 - 최종 빌드 판단은 **사용자의 로컬 \`npm run build\` 결과를 신뢰**한다.
 
