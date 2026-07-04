@@ -125,4 +125,30 @@ src/
     drink_log.remaining_after 마이그레이션(add_whisky_fields).
   * 셀러 2개 추가: 서재 진열장(2칸×25), 거실 진열장(6칸×20). BOTTLE_SIZES에 700ml/1L 추가
     (700·750은 배지 없음).
-  * AddWineModal 카테고리 토글(🍷/🥃) — 위스키는 빈티지 대신 숙성연수·도수, 
+  * AddWineModal 카테고리 토글(🍷/🥃) — 위스키는 빈티지 대신 숙성연수·도수, AI 검색 프롬프트도
+    위스키용(whiskybase/TWE, 700ml 기준) 분기. 카테고리 전환 시 기본 보관처·용량 자동 전환.
+  * 마심 기록 분기: 위스키는 "시음 세션" — 병 차감 없이 잔량 슬라이더(remaining_pct) 갱신 +
+    drink_log에 remaining_after 기록, 첫 기록 시 opened_date 자동 세팅. 한 병에 여러 세션 누적.
+    '빈 병' 체크 시에만 qty−1(남은 병 있으면 개봉 상태 초기화). App.jsx drinkWine 분기.
+  * DetailModal: 숙성연수·도수 표시, 개봉 배지(openedBadge), 개봉 상태·시음 횟수 타일,
+    시음 세션 히스토리 목록(drinkLog prop). 수정 폼도 위스키 필드 분기.
+  * getDrinkingStatus는 위스키에 null 반환(음용 적기 제외), DrinkingWindowView도 위스키 필터.
+  * cave-monthly-price-refresh 스케줄 프롬프트에 위스키 규칙(700ml, whiskybase/TWE) 반영.
+  * 사진 일괄 입력(BulkImportModal)도 위스키 지원: 1단계 카테고리 토글(선택 시 셀러 목록 필터
+    — 위스키는 진열장만), 위스키 비전 프롬프트(이름·숙성연수·도수 인식), 가격 검색 위스키 분기,
+    검토 화면 빈티지→숙성연수 입력, 기본 용량 700ml.
+
+## Supabase 서버 측 구성 (코드 저장소 밖)
+- Edge Function: `anthropic-proxy` (verify_jwt=true)
+- Secret: `ANTHROPIC_API_KEY`
+- Storage 버킷: `wine-images` (public read, authenticated write). 이미지 URL만 DB에 저장.
+- RPC: `get_public_wines()`(공개 갤러리, bottle_size 포함), `get_shared_wine(p_token)`
+- RLS: 세 테이블 "authenticated full access"
+- 마이그레이션: RETURNS TABLE 변경 시 drop function 후 create function,
+  이어서 revoke all from public + grant execute to anon, authenticated
+  (security definer + set search_path = public)
+
+## 아직 미적용 (다음 작업 후보)
+- 취향 프로필 (음주 기록 기반 선호 품종·지역·평점 분석)
+- AI 추천("오늘 뭐 마실까")
+- 위시리스트

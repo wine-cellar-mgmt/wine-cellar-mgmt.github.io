@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CELLARS, getSlots, cellarById, T, uid, compressImage, BOTTLE_SIZES } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, uid, compressImage, BOTTLE_SIZES, CATEGORIES } from '../../config/cellars.js'
 import { callProxy } from '../../lib/supabase.js'
 import { Btn, lbl } from '../ui.jsx'
 
@@ -130,6 +130,7 @@ async function cropToThumb(dataUrl, box, maxW = 320) {
 
 export function BulkImportModal({ onAddMany, onClose }) {
   const [step, setStep] = useState(1)
+  const [category, setCategory] = useState('wine')
   const [cellarId, setCellarId] = useState('vindis1')
   const [slot, setSlot] = useState('1')
   const [photos, setPhotos] = useState([])
@@ -137,6 +138,15 @@ export function BulkImportModal({ onAddMany, onClose }) {
   const [enriching, setEnriching] = useState(false)
   const [enrichProgress, setEnrichProgress] = useState(0)
   const curCellar = cellarById(cellarId)
+  const whisky = category === 'whisky'
+  // 카테고리에 맞는 셀러만 노출 (위스키 → 진열장, 와인 → 셀러)
+  const cellarOptions = CELLARS.filter(c => whisky === c.id.startsWith('shelf_'))
+
+  function switchCategory(cat) {
+    setCategory(cat)
+    const first = CELLARS.find(c => (cat === 'whisky') === c.id.startsWith('shelf_'))
+    if (first) { setCellarId(first.id); setSlot('1') }
+  }
 
   // enrich 로직 분리 — handleFiles에서도 호출 가능하도록
   async function enrichWines(wines) {
@@ -149,8 +159,20 @@ export function BulkImportModal({ onAddMany, onClose }) {
       const w = toEnrich[i]
       try {
         const q = w.vintage ? `${w.name} ${w.vintage}` : w.name
-        const data = await callVisionAPI([{ role: 'user', content:
-          `와인 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
+        const enrichPrompt = whisky
+          ? `위스키 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
+{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"이 위스키를 한국어로 2문장 설명","abv":null,"ageYears":null,"vivinoPrice":null,"wineSearcherPrice":null}
+
+가격 수집 방법 (700ml 1병 기준):
+- whiskybase.com / thewhiskyexchange.com 가격 조회
+- dailyshot.co.kr 등 한국 주류 판매가 KRW 조회
+- USD/GBP 가격은 현재 환율로 KRW 환산
+
+- wineSearcherPrice: 한국 시장 기준 KRW 숫자만 (예: 180000)
+- vivinoPrice: 글로벌 USD 숫자만
+- abv: 도수 숫자 (예: 46), ageYears: 숙성연수 숫자 (NAS면 null)
+- 모르는 필드는 null로 두세요.`
+          : `와인 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
 {"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"이 와인을 한국어로 2문장 설명","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
 
 가격 수집 방법 (750ml 1병 기준):
@@ -164,7 +186,8 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
 - wineSearcherPrice: KRW 숫자만, 가장 높은 가격 (예: 1100000)
 - vivinoPrice: USD 숫자만, vivino 원본 (예: 634)
 - vivinoRating: Vivino 평점 숫자만 (예: 4.5)
-- 모르는 필드는 null로 두세요.` }],
+- 모르는 필드는 null로 두세요.`
+        const data = await callVisionAPI([{ role: 'user', content: enrichPrompt }],
           2000, webSearchTool)
         const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '{}'
         console.log(`[Enrich] ${q}:`, text)
@@ -203,9 +226,21 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
       try { thumb = await compressImage(ph.file, 320) } catch { thumb = '' }
       setPhotos(p => p.map(x => x.id === ph.id ? { ...x, dataUrl, status: 'scanning' } : x))
       try {
-        const data = await callVisionAPI([{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-          { type: 'text', text: `당신은 와인 라벨 전문가입니다. 이 셀러 사진에서 보이는 모든 와인 병의 라벨을 분석해주세요.
+        const visionPrompt = whisky
+          ? `당신은 위스키 라벨 전문가입니다. 이 진열장 사진에서 보이는 모든 위스키 병의 라벨을 분석해주세요.
+
+분석 지침:
+- 병이 눕혀 있거나 라벨이 측면/부분만 보여도 최대한 읽어주세요
+- 같은 위스키가 여러 병 있으면 qty에 병 수를 기재하세요
+- 숙성연수(예: 12 Years)가 라벨에 보이면 ageYears에 숫자로 기재하세요 (NAS면 null)
+- 도수(ABV %)가 보이면 abv에 숫자로 기재하세요
+- 위스키 이름은 라벨에 표기된 공식 명칭으로 (예: "Glenfiddich 15", "Hibiki Japanese Harmony")
+- 라벨을 전혀 읽을 수 없는 병만 "미확인"으로 처리하세요
+- 각 위스키마다 사진에서 그 병이 차지하는 영역을 box로 표시하세요. box는 병 전체(병목~바닥)가 들어가도록 하고, 사진 왼쪽 위를 (0,0), 오른쪽 아래를 (1,1)로 한 비율 좌표입니다. x,y는 영역의 좌상단, w,h는 너비·높이(모두 0~1). 같은 위스키가 여러 병이면 대표 한 병의 box. 위치를 알 수 없으면 box는 null.
+
+반드시 아래 JSON 배열 형식만 반환하세요 (마크다운, 설명 텍스트 절대 없이):
+[{"name":"위스키 전체 이름","ageYears":숫자또는null,"abv":숫자또는null,"qty":병수정수,"box":{"x":0.0,"y":0.0,"w":1.0,"h":1.0}}]`
+          : `당신은 와인 라벨 전문가입니다. 이 셀러 사진에서 보이는 모든 와인 병의 라벨을 분석해주세요.
 
 분석 지침:
 - 병이 눕혀 있거나 라벨이 측면/부분만 보여도 최대한 읽어주세요
@@ -217,7 +252,10 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
 - 각 와인마다 사진에서 그 병이 차지하는 영역을 box로 표시하세요. box는 병 전체(병목~바닥)가 들어가도록 하고, 사진 왼쪽 위를 (0,0), 오른쪽 아래를 (1,1)로 한 비율 좌표입니다. x,y는 영역의 좌상단, w,h는 너비·높이(모두 0~1). 같은 와인이 여러 병이면 대표 한 병의 box. 위치를 알 수 없으면 box는 null.
 
 반드시 아래 JSON 배열 형식만 반환하세요 (마크다운, 설명 텍스트 절대 없이):
-[{"name":"와인 전체 이름","vintage":연도숫자또는null,"qty":병수정수,"box":{"x":0.0,"y":0.0,"w":1.0,"h":1.0}}]` }
+[{"name":"와인 전체 이름","vintage":연도숫자또는null,"qty":병수정수,"box":{"x":0.0,"y":0.0,"w":1.0,"h":1.0}}]`
+        const data = await callVisionAPI([{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+          { type: 'text', text: visionPrompt }
         ]}], 3000, null, true)
 
         const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '[]'
@@ -243,9 +281,12 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
             } catch { /* 크롭 실패 시 전체 사진 사용 */ }
           }
           withMeta.push({
-            _id: uid(), name: w.name || '', vintage: w.vintage || null,
+            _id: uid(), name: w.name || '', vintage: whisky ? null : (w.vintage || null),
             qty: w.qty || 1, cellarId, slot, price: '', purchaseDate: '',
-            imageUrl: img, notes: '', bottleSize: 750, _enriched: false
+            imageUrl: img, notes: '', bottleSize: whisky ? 700 : 750, _enriched: false,
+            category,
+            ageYears: whisky ? (w.ageYears || null) : null,
+            abv: whisky ? (w.abv || null) : null,
           })
         }
         newlyFound = [...newlyFound, ...withMeta]
@@ -296,11 +337,22 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
         {/* Step 1 */}
         {step === 1 && (
           <div>
-            <p style={{ fontSize: '0.85rem', color: T.text, lineHeight: 1.7, marginBottom: 20 }}>
+            <p style={{ fontSize: '0.85rem', color: T.text, lineHeight: 1.7, marginBottom: 16 }}>
               촬영한 <strong style={{ color: T.cream }}>셀러와 칸 번호</strong>를 선택하세요. 한 칸씩 진행합니다.
             </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {CATEGORIES.map(c => (
+                <button key={c.id} onClick={() => switchCategory(c.id)} style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
+                  border: `1px solid ${category === c.id ? T.gold : T.border}`,
+                  background: category === c.id ? `${T.gold}22` : T.surface,
+                  color: category === c.id ? T.gold : T.muted,
+                  fontSize: '0.85rem', fontWeight: 600,
+                }}>{c.icon} {c.label}</button>
+              ))}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 28 }}>
-              <div><label style={lbl}>셀러</label><select value={cellarId} onChange={e => { setCellarId(e.target.value); setSlot('1') }}>{CELLARS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label style={lbl}>셀러</label><select value={cellarId} onChange={e => { setCellarId(e.target.value); setSlot('1') }}>{cellarOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div><label style={lbl}>칸 번호</label><select value={slot} onChange={e => setSlot(e.target.value)}>{getSlots(curCellar).map(s => <option key={s} value={s}>{s}번 칸</option>)}</select></div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Btn variant="gold" onClick={() => setStep(2)}>다음 →</Btn></div>
@@ -312,7 +364,7 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
           <div>
             <div style={{ background: T.surface, border: `2px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: '2rem', marginBottom: 8 }}>📸</div>
-              <div style={{ fontSize: '0.875rem', color: T.text, marginBottom: 4 }}><strong style={{ color: T.cream }}>{cellarById(cellarId)?.name} · {slot}번 칸</strong> 와인 사진</div>
+              <div style={{ fontSize: '0.875rem', color: T.text, marginBottom: 4 }}><strong style={{ color: T.cream }}>{cellarById(cellarId)?.name} · {slot}번 칸</strong> {whisky ? '위스키' : '와인'} 사진</div>
               <div style={{ fontSize: '0.78rem', color: T.muted, marginBottom: 16 }}>여러 장 선택 가능 · 라벨이 잘 보일수록 정확합니다</div>
               <label style={{ display: 'inline-block', background: T.gold, color: T.bg, border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
                 📷 사진 선택 / 촬영
@@ -368,7 +420,7 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
                 <div key={w._id} style={{ background: T.surface, border: `1px solid ${w._enriched ? T.gold + '44' : T.border}`, borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <label style={{ cursor: 'pointer', flexShrink: 0, position: 'relative', display: 'block' }} title="눌러서 사진 교체">
-                      {w.imageUrl ? <img src={w.imageUrl} alt="" style={{ width: 36, height: 52, objectFit: 'cover', borderRadius: 4, display: 'block' }} onError={e => e.target.style.display = 'none'} /> : <div style={{ width: 36, height: 52, background: T.card, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', border: `1px solid ${T.border}` }}>🍷</div>}
+                      {w.imageUrl ? <img src={w.imageUrl} alt="" style={{ width: 36, height: 52, objectFit: 'cover', borderRadius: 4, display: 'block' }} onError={e => e.target.style.display = 'none'} /> : <div style={{ width: 36, height: 52, background: T.card, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', border: `1px solid ${T.border}` }}>{whisky ? '🥃' : '🍷'}</div>}
                       <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: '0.6rem', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 4, padding: '0 2px', color: T.muted }}>✎</span>
                       <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
                         const f = e.target.files?.[0]; if (!f) return
@@ -377,9 +429,11 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
                       }} />
                     </label>
                     <div style={{ flex: 1 }}>
-                      <input value={w.name} onChange={e => setField(w._id, 'name', e.target.value)} style={{ marginBottom: 6, fontWeight: 500, fontSize: '0.875rem' }} placeholder="와인 이름" />
+                      <input value={w.name} onChange={e => setField(w._id, 'name', e.target.value)} style={{ marginBottom: 6, fontWeight: 500, fontSize: '0.875rem' }} placeholder={whisky ? '위스키 이름' : '와인 이름'} />
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                        <input value={w.vintage || ''} onChange={e => setField(w._id, 'vintage', e.target.value ? parseInt(e.target.value) : null)} type="number" placeholder="빈티지" style={{ fontSize: '0.8rem' }} />
+                        {whisky
+                          ? <input value={w.ageYears || ''} onChange={e => setField(w._id, 'ageYears', e.target.value ? parseInt(e.target.value) : null)} type="number" placeholder="숙성연수" style={{ fontSize: '0.8rem' }} />
+                          : <input value={w.vintage || ''} onChange={e => setField(w._id, 'vintage', e.target.value ? parseInt(e.target.value) : null)} type="number" placeholder="빈티지" style={{ fontSize: '0.8rem' }} />}
                         <input value={w.qty} onChange={e => setField(w._id, 'qty', parseInt(e.target.value) || 1)} type="number" min="1" style={{ fontSize: '0.8rem' }} placeholder="수량" />
                         <input value={w.price || ''} onChange={e => setField(w._id, 'price', e.target.value)} type="number" placeholder="구매가 ₩" style={{ fontSize: '0.8rem' }} />
                       </div>
@@ -392,6 +446,7 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
                         {w.producer && <span>{w.producer}</span>}
                         {w.region && <span>{w.region}</span>}
                         {w.grape && <span>🍇 {w.grape}</span>}
+                        {whisky && w.abv && <span>{w.abv}%</span>}
                         {(w.vivinoPrice || w.wineSearcherPrice) && <span style={{ color: T.gold }}>${w.vivinoPrice && w.wineSearcherPrice ? Math.round((w.vivinoPrice + w.wineSearcherPrice) / 2) : (w.vivinoPrice || w.wineSearcherPrice)}</span>}
                       </div>}
                     </div>
@@ -402,7 +457,7 @@ vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Btn variant="ghost" onClick={() => setStep(2)}>← 뒤로</Btn>
-              <Btn variant="gold" onClick={confirm}>🍷 {wineList.filter(w => w.name.trim() && w.name !== '미확인').length}건 전체 추가</Btn>
+              <Btn variant="gold" onClick={confirm}>{whisky ? '🥃' : '🍷'} {wineList.filter(w => w.name.trim() && w.name !== '미확인').length}건 전체 추가</Btn>
             </div>
           </div>
         )}
