@@ -187,6 +187,11 @@ function wineToDb(w) {
     wine_type: w.wineType || 'red',
     bottle_size: w.bottleSize || 750,
     share_token: w.shareToken || null,
+    category: w.category || 'wine',
+    abv: w.abv || null,
+    age_years: w.ageYears || null,
+    opened_date: w.openedDate || null,
+    remaining_pct: w.remainingPct ?? null,
   }
 }
 
@@ -201,6 +206,9 @@ function dbToWine(r) {
     drinkingFrom: r.drinking_from, drinkingTo: r.drinking_to,
     wineType: r.wine_type, shareToken: r.share_token,
     bottleSize: r.bottle_size || 750,
+    category: r.category || 'wine',
+    abv: r.abv, ageYears: r.age_years,
+    openedDate: r.opened_date, remainingPct: r.remaining_pct,
   }
 }
 
@@ -211,6 +219,7 @@ function drinkToDb(r) {
     slot: r.slot || '', date: r.date, companions: r.companions || '',
     occasion: r.occasion || '', rating: r.rating || 0,
     review: r.review || '', image_url: r.imageUrl || '',
+    remaining_after: r.remainingAfter ?? null,
   }
 }
 
@@ -221,5 +230,6 @@ function dbToDrink(r) {
     slot: r.slot, date: r.date, companions: r.companions,
     occasion: r.occasion, rating: r.rating, review: r.review,
     imageUrl: r.image_url, createdAt: r.created_at,
+    remainingAfter: r.remaining_after,
   }
 }

@@ -62,7 +62,8 @@ export function DrinkingWindowView({ wines, openDetail, onUpdate }) {
   // 같은 와인(name+vintage) 묶기 + 섹션 분류 — wines가 바뀔 때만 재계산
   const { bySection, totalGroups } = useMemo(() => {
     const groupsMap = {}
-    wines.forEach(w => {
+    // 위스키는 음용 적기 개념이 없으므로 제외
+    wines.filter(w => w.category !== 'whisky').forEach(w => {
       const key = `${(w.name || '').trim()}|||${w.vintage || ''}`
       if (!groupsMap[key]) groupsMap[key] = { key, rep: w, items: [], qty: 0 }
       groupsMap[key].items.push(w)

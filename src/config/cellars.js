@@ -2,7 +2,22 @@ export const CELLARS = [
   { id: 'vindis1',  name: 'VINDIS #1', slots: 10, maxPerSlot: 20 },
   { id: 'vindis2',  name: 'VINDIS #2', slots: 10, maxPerSlot: 20 },
   { id: 'eurocave', name: 'EUROCAVE',  slots: 15, maxPerSlot: 12 },
+  { id: 'shelf_study',  name: '서재 진열장', slots: 2, maxPerSlot: 25 },
+  { id: 'shelf_living', name: '거실 진열장', slots: 6, maxPerSlot: 20 },
 ]
+
+// ── 카테고리 (와인/위스키) ───────────────────────────────────────
+export const CATEGORIES = [
+  { id: 'wine',   label: '와인',   icon: '🍷' },
+  { id: 'whisky', label: '위스키', icon: '🥃' },
+]
+export const isWhisky = w => w?.category === 'whisky'
+// 개봉 배지: 위스키가 개봉된 경우에만 표시 (예: 🥃 개봉 55%)
+export function openedBadge(w) {
+  if (!isWhisky(w) || !w.openedDate) return null
+  const pct = w.remainingPct == null ? 100 : w.remainingPct
+  return `🥃 개봉 ${pct}%`
+}
 
 export function cellarById(id) { return CELLARS.find(c => c.id === id) }
 export function getSlots(cellar) { return Array.from({ length: cellar.slots }, (_, i) => String(i + 1)) }
@@ -23,23 +38,26 @@ export const kdate = d => d ? new Date(d).toLocaleDateString('ko-KR') : '-'
 // ── 병 용량 ──────────────────────────────────────────────────────
 // 기본 750ml(일반병). 매그넘 등은 드롭다운으로 선택.
 export const BOTTLE_SIZES = [
+  { ml: 700,  label: '700ml (위스키)' },
   { ml: 750,  label: '일반 (750ml)' },
+  { ml: 1000, label: '1L' },
   { ml: 1500, label: '매그넘 (1.5L)' },
 ]
 export function bottleLabel(ml) {
   const m = BOTTLE_SIZES.find(b => b.ml === Number(ml))
   return m ? m.label : `${ml}ml`
 }
-// 일반병(750)·미설정이면 null → 배지 표시 안 함
+// 일반병(750)·위스키 표준(700)·미설정이면 null → 배지 표시 안 함
 export function bottleBadge(ml) {
   const n = Number(ml)
-  if (!n || n === 750) return null
+  if (!n || n === 750 || n === 700) return null
   if (n === 1500) return '🍾 매그넘'
   return `🍾 ${n >= 1000 ? (n / 1000) + 'L' : n + 'ml'}`
 }
 
 // ── 음용 적기 ────────────────────────────────────────────────────
 export function getDrinkingStatus(wine) {
+  if (wine?.category === 'whisky') return null // 위스키는 음용 적기 개념 없음
   const year = new Date().getFullYear()
   const from = wine.drinkingFrom
   const to   = wine.drinkingTo

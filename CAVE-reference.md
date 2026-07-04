@@ -22,13 +22,17 @@ CAVE는 개인 와인 셀러 관리 PWA다. 이 문서는 작업 시 배경 맥�
 - VINDIS #1 (`vindis1`): 10칸, 칸당 최대 20병
 - VINDIS #2 (`vindis2`): 10칸, 칸당 최대 20병
 - EUROCAVE (`eurocave`): 15칸, 칸당 최대 12병
+- 서재 진열장 (`shelf_study`): 2칸, 칸당 최대 25병 (위스키)
+- 거실 진열장 (`shelf_living`): 6칸, 칸당 최대 20병 (위스키)
 
 ## DB 테이블
 - **wines**: id, name, vintage, qty, price, purchase_date, cellar_id, slot, image_url, notes,
   producer, region, country, grape, description, vivino_price(USD), wine_searcher_price(KRW),
-  vivino_rating, drinking_from, drinking_to, wine_type, share_token, bottle_size(정수, ml, 기본 750)
+  vivino_rating, drinking_from, drinking_to, wine_type, share_token, bottle_size(정수, ml, 기본 750),
+  category('wine'|'whisky', 기본 'wine'), abv(도수), age_years(숙성연수), opened_date(개봉일),
+  remaining_pct(잔량 %)
 - **drink_log**: id, wine_id, wine_name, wine_vintage, cellar_name, slot, date, companions,
-  occasion, rating, review, image_url
+  occasion, rating, review, image_url, remaining_after(위스키 세션 후 잔량 %)
 - **purchase_history**: id, wine_id, purchase_date, price, qty, notes
 - **price_history**: id, wine_id(→wines cascade), recorded_at(date), wine_searcher_price,
   vivino_price, vivino_rating, source('seed'|'app'|'auto'), created_at.
@@ -116,17 +120,9 @@ src/
     `cave-monthly-price-refresh`(매달 6일 09:00, 전체 152종 웹 검색 → wines 갱신 + price_history 'auto' 기록).
     ※ 스케줄은 Cowork 앱이 켜져 있어야 실행됨(꺼져 있으면 다음 실행 시점에 수행).
 
-## Supabase 서버 측 구성 (코드 저장소 밖)
-- Edge Function: `anthropic-proxy` (verify_jwt=true)
-- Secret: `ANTHROPIC_API_KEY`
-- Storage 버킷: `wine-images` (public read, authenticated write). 이미지 URL만 DB에 저장.
-- RPC: `get_public_wines()`(공개 갤러리, bottle_size 포함), `get_shared_wine(p_token)`
-- RLS: 세 테이블 "authenticated full access"
-- 마이그레이션: RETURNS TABLE 변경 시 drop function 후 create function,
-  이어서 revoke all from public + grant execute to anon, authenticated
-  (security definer + set search_path = public)
-
-## 아직 미적용 (다음 작업 후보)
-- 취향 프로필 (음주 기록 기반 선호 품종·지역·평점 분석)
-- AI 추천("오늘 뭐 마실까")
-- 위시리스트
+- 위스키 관리(2026-07-04):
+  * wines.category('wine'|'whisky') + abv/age_years/opened_date/remaining_pct,
+    drink_log.remaining_after 마이그레이션(add_whisky_fields).
+  * 셀러 2개 추가: 서재 진열장(2칸×25), 거실 진열장(6칸×20). BOTTLE_SIZES에 700ml/1L 추가
+    (700·750은 배지 없음).
+  * AddWineModal 카테고리 토글(🍷/🥃) — 위스키는 빈티지 대신 숙성연수·도수, 

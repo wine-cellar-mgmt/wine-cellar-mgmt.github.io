@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge, isWhisky, openedBadge } from '../../config/cellars.js'
 import { callProxy, loadPriceHistory } from '../../lib/supabase.js'
 import { Btn, lbl, ImagePicker } from '../ui.jsx'
 
@@ -82,7 +82,13 @@ function PriceHistoryChart({ wine }) {
 }
 
 // ── Detail Modal ────────────────────────────────────────────────
-export function DetailModal({ wine, onClose, onDrink, onRemove, onUpdate, onMove, goSlot }) {
+export function DetailModal({ wine, drinkLog = [], onClose, onDrink, onRemove, onUpdate, onMove, goSlot }) {
+  const whisky = isWhisky(wine)
+  // 이 병의 시음 세션 기록 (위스키 — 최신순)
+  const sessions = useMemo(
+    () => whisky ? drinkLog.filter(r => r.wineId === wine.id) : [],
+    [whisky, drinkLog, wine.id]
+  )
   const [editing, setEditing] = useState(false)
   const [moving, setMoving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -121,8 +127,18 @@ export function DetailModal({ wine, onClose, onDrink, onRemove, onUpdate, onMove
     setAiLoad(true)
     try {
       const q = form.vintage ? `${form.name} ${form.vintage}` : form.name
-      const data = await callProxy([{ role: 'user', content:
-            `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
+      const prompt = whisky
+        ? `위스키 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
+{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"한국어 2문장","abv":null,"ageYears":null,"vivinoPrice":null,"wineSearcherPrice":null}
+
+가격 수집 (700ml 기준):
+- whiskybase.com / thewhiskyexchange.com
+- dailyshot.co.kr 등 한국 판매가 KRW
+- USD/GBP → 현재 환율 KRW 환산
+한국 KRW → wineSearcherPrice, 글로벌 USD → vivinoPrice
+abv는 도수 숫자, ageYears는 숙성연수 숫자(NAS면 null)
+숫자만, 모르면 null`
+        : `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
 {"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"한국어 2문장","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
 
 가격 수집 (750ml 기준):
@@ -131,7 +147,8 @@ export function DetailModal({ wine, onClose, onDrink, onRemove, onUpdate, onMove
 - vivino.com USD → 현재 환율 KRW 환산
 세 가격 중 가장 높은 KRW → wineSearcherPrice
 vivino USD 원본 → vivinoPrice
-숫자만, 모르면 null` }],
+숫자만, 모르면 null`
+      const data = await callProxy([{ role: 'user', content: prompt }],
         2000, [{ type: 'web_search_20250305', name: 'web_search' }])
       const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '{}'
       const cleaned = text.replace(/```json|```/g, '').trim()
@@ -147,7 +164,14 @@ vivino USD 원본 → vivinoPrice
   }
 
   function saveEdit() {
-    onUpdate({ ...form, vintage: parseInt(String(form.vintage)) || null, qty: parseInt(String(form.qty)) || 1, price: parseInt(String(form.price || '0').replace(/,/g, '')) || 0 })
+    onUpdate({
+      ...form,
+      vintage: parseInt(String(form.vintage)) || null,
+      qty: parseInt(String(form.qty)) || 1,
+      price: parseInt(String(form.price || '0').replace(/,/g, '')) || 0,
+      abv: whisky ? (parseFloat(String(form.abv)) || null) : null,
+      ageYears: whisky ? (parseInt(String(form.ageYears)) || null) : null,
+    })
     setEditing(false)
   }
 
@@ -156,9 +180,9 @@ vivino USD 원본 → vivinoPrice
   if (editing) return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box">
-        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: T.cream, marginBottom: 20 }}>와인 수정</h2>
+        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: T.cream, marginBottom: 20 }}>{whisky ? '위스키 수정' : '와인 수정'}</h2>
         <div style={{ marginBottom: 12 }}>
-          <label style={lbl}>와인 이름</label>
+          <label style={lbl}>{whisky ? '위스키 이름' : '와인 이름'}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={form.name} onChange={e => setF('name', e.target.value)} style={{ flex: 1 }} />
             <button onClick={runAI} disabled={aiLoad || !form.name?.trim()} style={{
@@ -170,10 +194,23 @@ vivino USD 원본 → vivinoPrice
             }}>{aiLoad ? '검색 중...' : '🔍 AI 검색'}</button>
           </div>
         </div>
-        <div style={G}>
-          <div><label style={lbl}>빈티지</label><input value={form.vintage || ''} onChange={e => setF('vintage', e.target.value)} type="number" /></div>
-          <div><label style={lbl}>수량</label><input value={form.qty || 1} onChange={e => setF('qty', e.target.value)} type="number" min="1" /></div>
-        </div>
+        {whisky ? (
+          <>
+            <div style={G}>
+              <div><label style={lbl}>숙성연수 (년)</label><input value={form.ageYears || ''} onChange={e => setF('ageYears', e.target.value)} type="number" placeholder="NAS면 비움" /></div>
+              <div><label style={lbl}>도수 (%)</label><input value={form.abv || ''} onChange={e => setF('abv', e.target.value)} type="number" step="0.1" /></div>
+            </div>
+            <div style={G}>
+              <div><label style={lbl}>수량</label><input value={form.qty || 1} onChange={e => setF('qty', e.target.value)} type="number" min="1" /></div>
+              <div></div>
+            </div>
+          </>
+        ) : (
+          <div style={G}>
+            <div><label style={lbl}>빈티지</label><input value={form.vintage || ''} onChange={e => setF('vintage', e.target.value)} type="number" /></div>
+            <div><label style={lbl}>수량</label><input value={form.qty || 1} onChange={e => setF('qty', e.target.value)} type="number" min="1" /></div>
+          </div>
+        )}
         <div style={G}>
           <div><label style={lbl}>용량</label>
             <select value={form.bottleSize || 750} onChange={e => setF('bottleSize', parseInt(e.target.value))}>
@@ -295,12 +332,14 @@ vivino USD 원본 → vivinoPrice
         <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
           {wine.imageUrl
             ? <img src={wine.imageUrl} alt={wine.name} style={{ width: 80, height: 112, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
-            : <div style={{ width: 80, height: 112, background: T.surface, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', border: `1px solid ${T.border}` }}>🍷</div>
+            : <div style={{ width: 80, height: 112, background: T.surface, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', border: `1px solid ${T.border}` }}>{whisky ? '🥃' : '🍷'}</div>
           }
           <div style={{ flex: 1 }}>
             <button onClick={onClose} style={{ float: 'right', background: 'none', border: 'none', color: T.muted, fontSize: '1.1rem' }}>✕</button>
             <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.25rem', color: T.cream, lineHeight: 1.3, marginBottom: 6 }}>{wine.name}</h2>
             {wine.vintage && <div style={{ color: T.gold, fontWeight: 600, fontSize: '1rem', marginBottom: 6 }}>{wine.vintage}</div>}
+            {whisky && (wine.ageYears || wine.abv) && <div style={{ color: T.gold, fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>{[wine.ageYears ? `${wine.ageYears}년 숙성` : null, wine.abv ? `${wine.abv}%` : null].filter(Boolean).join(' · ')}</div>}
+            {openedBadge(wine) && <div style={{ display: 'inline-block', background: `${T.gold}22`, color: T.gold, border: `1px solid ${T.gold}66`, borderRadius: 6, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 600, marginBottom: 6, marginRight: 6 }}>{openedBadge(wine)}</div>}
             {bottleBadge(wine.bottleSize) && <div style={{ display: 'inline-block', background: `${T.wine}33`, color: T.wineLight, border: `1px solid ${T.wine}`, borderRadius: 6, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 600, marginBottom: 6 }}>{bottleBadge(wine.bottleSize)}</div>}
             {wine.producer && <div style={{ fontSize: '0.78rem', color: T.muted }}>{wine.producer}</div>}
             {wine.region && <div style={{ fontSize: '0.78rem', color: T.muted }}>{wine.country ? `${wine.region}, ${wine.country}` : wine.region}</div>}
@@ -315,7 +354,7 @@ vivino USD 원본 → vivinoPrice
           const krw = n => '₩' + Number(n).toLocaleString('ko-KR')
           return (
             <div style={{ background: T.surface, border: `1px solid ${T.gold}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
-              <div style={{ fontSize: '0.66rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontWeight: 600 }}>💰 시장가 (750ml 기준)</div>
+              <div style={{ fontSize: '0.66rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontWeight: 600 }}>💰 시장가 ({whisky ? '700ml' : '750ml'} 기준)</div>
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 {wp && <div><div style={{ fontSize: '0.68rem', color: T.muted }}>🇰🇷 한국 시장가</div><div style={{ fontWeight: 700, color: T.gold, fontSize: '1.05rem' }}>{krw(wp)}</div></div>}
                 {vp && <div><div style={{ fontSize: '0.68rem', color: T.muted }}>🌐 글로벌 (Wine-Searcher)</div><div style={{ fontWeight: 600, color: T.cream }}>${vp}{wine.vivinoRating && <span style={{ fontSize: '0.72rem', color: T.muted, marginLeft: 6 }}>⭐{wine.vivinoRating}</span>}</div></div>}
@@ -328,7 +367,9 @@ vivino USD 원본 → vivinoPrice
         <PriceHistoryChart wine={wine} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          {[['수량', `${wine.qty || 1}병`], ['구매가격', krw(wine.price)], ['구매일', kdate(wine.purchaseDate)], ['위치', `${c?.name} · ${wine.slot}번 칸`]].map(([k, v]) => (
+          {[['수량', `${wine.qty || 1}병`], ['구매가격', krw(wine.price)], ['구매일', kdate(wine.purchaseDate)], ['위치', `${c?.name} · ${wine.slot}번 칸`],
+            ...(whisky ? [['개봉 상태', wine.openedDate ? `${kdate(wine.openedDate)} 개봉 · 잔량 ${wine.remainingPct == null ? 100 : wine.remainingPct}%` : '미개봉'], ['시음 횟수', `${sessions.length}회`]] : [])
+          ].map(([k, v]) => (
             <div key={k} style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}` }}>
               <div style={{ fontSize: '0.66rem', color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{k}</div>
               <div style={{ fontSize: '0.9rem', color: T.cream, fontWeight: 500 }}>{v}</div>
@@ -336,6 +377,24 @@ vivino USD 원본 → vivinoPrice
           ))}
         </div>
         {wine.notes && <div style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}`, marginBottom: 16 }}><div style={{ fontSize: '0.66rem', color: T.muted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.08em' }}>메모</div><div style={{ fontSize: '0.85rem', color: T.text }}>{wine.notes}</div></div>}
+
+        {/* 위스키 시음 세션 히스토리 — 한 병에 여러 번 기록 */}
+        {whisky && sessions.length > 0 && (
+          <div style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: '0.66rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontWeight: 600 }}>🥃 시음 기록 · {sessions.length}회</div>
+            {sessions.map((s, i) => (
+              <div key={s.id} style={{ padding: '8px 0', borderTop: i > 0 ? `1px solid ${T.border}` : 'none' }}>
+                <div style={{ fontSize: '0.8rem', color: T.cream, fontWeight: 500 }}>
+                  {kdate(s.date)}
+                  {s.remainingAfter != null && <span style={{ color: T.gold, marginLeft: 8 }}>잔량 {s.remainingAfter}%</span>}
+                  {s.rating > 0 && <span style={{ color: T.muted, marginLeft: 8 }}>⭐ {s.rating}</span>}
+                </div>
+                {(s.occasion || s.companions) && <div style={{ fontSize: '0.74rem', color: T.muted, marginTop: 2 }}>{[s.occasion, s.companions].filter(Boolean).join(' · ')}</div>}
+                {s.review && <div style={{ fontSize: '0.76rem', color: T.text, fontStyle: 'italic', marginTop: 3 }}>{s.review}</div>}
+              </div>
+            ))}
+          </div>
+        )}
 
         <hr style={{ border: 'none', borderTop: `1px solid ${T.border}`, margin: '16px 0' }} />
         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -345,7 +404,7 @@ vivino USD 원본 → vivinoPrice
             <Btn variant="ghost" size="sm" onClick={() => setEditing(true)}>✏️ 수정</Btn>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Btn variant="wine" size="sm" onClick={() => onDrink(wine)}>🍷 마심</Btn>
+            <Btn variant="wine" size="sm" onClick={() => onDrink(wine)}>{whisky ? '🥃 시음' : '🍷 마심'}</Btn>
             {confirmDelete
               ? <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#c0392b22', border: '1px solid #c0392b', borderRadius: 8, padding: '4px 10px' }}>
                   <span style={{ fontSize: '0.78rem', color: '#e07070' }}>삭제?</span>

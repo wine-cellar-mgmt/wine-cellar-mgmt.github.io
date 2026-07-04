@@ -260,8 +260,25 @@ export default function App() {
   }
 
   async function drinkWine(wine, record) {
-    // Decrement qty (실패 시 롤백하고 기록도 중단)
     const base = winesRef.current.find(w => w.id === wine.id) || wine
+
+    // 위스키 시음 세션 — 병 차감 없이 잔량·개봉일만 갱신, 기록은 여러 번 누적
+    if (base.category === 'whisky' && !record.emptyBottle) {
+      const updates = { remainingPct: record.remainingAfter ?? base.remainingPct ?? 100 }
+      if (!base.openedDate) updates.openedDate = record.date
+      await updateWine(base.id, updates)
+      let r = { ...record, id: record.id || uid() }
+      delete r.emptyBottle
+      if (r.imageUrl && r.imageUrl.startsWith('data:')) {
+        try { r.imageUrl = await uploadImage(r.imageUrl, 'drink') } catch { /* 원본 유지 */ }
+      }
+      setDrinkLog(p => [r, ...p])
+      try { await insertDrink(r); showToast('🥃 시음 기록 저장됨', 'success') }
+      catch { showToast('⚠ 기록 저장 실패', 'error') }
+      return
+    }
+
+    // 병 차감 (와인 마심 / 위스키 빈 병 처리) — 실패 시 롤백하고 기록도 중단
     const newQty = (base.qty || 1) - 1
     if (newQty <= 0) {
       applyWines(p => p.filter(w => w.id !== wine.id))
@@ -272,7 +289,10 @@ export default function App() {
         return
       }
     } else {
-      const updated = { ...base, qty: newQty }
+      // 위스키 빈 병 처리 후 남은 병은 미개봉 새 병 — 개봉 상태 초기화
+      const updated = base.category === 'whisky'
+        ? { ...base, qty: newQty, openedDate: null, remainingPct: null }
+        : { ...base, qty: newQty }
       applyWines(p => p.map(w => w.id === wine.id ? updated : w))
       try { await upsertWine(updated); setSyncStatus('synced') }
       catch {
@@ -283,6 +303,7 @@ export default function App() {
     }
     // Add drink record (사진은 Storage에 업로드)
     let r = { ...record, id: record.id || uid() }
+    delete r.emptyBottle
     if (r.imageUrl && r.imageUrl.startsWith('data:')) {
       try { r.imageUrl = await uploadImage(r.imageUrl, 'drink') } catch { /* 원본 유지 */ }
     }
@@ -425,6 +446,7 @@ export default function App() {
       {detailWine && (
         <DetailModal
           wine={detailWine}
+          drinkLog={drinkLog}
           onClose={() => setModal(null)}
           onDrink={w => { setModal({ type: 'drink', wine: w }) }}
           onRemove={async () => { await removeWine(detailWine.id); setModal(null) }}

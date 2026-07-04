@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CELLARS, getSlots, cellarById, T, krw, getDrinkingStatus, bottleBadge } from '../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, krw, getDrinkingStatus, bottleBadge, openedBadge } from '../config/cellars.js'
 import { Btn, useIsMobile } from './ui.jsx'
 
 export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, onDrink, onDeleteMany }) {
@@ -190,6 +190,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                             <div style={{ fontSize: '0.9rem', fontWeight: 500, color: T.cream, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
                             {bottleBadge(w.bottleSize) && <span style={{ fontSize: '0.7rem', color: T.wineLight, fontWeight: 600, flexShrink: 0 }}>{bottleBadge(w.bottleSize)}</span>}
+                            {openedBadge(w) && <span style={{ fontSize: '0.7rem', color: T.gold, fontWeight: 600, flexShrink: 0 }}>{openedBadge(w)}</span>}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: T.muted, marginTop: 2 }}>
                             {w.vintage && <span style={{ color: T.gold, marginRight: 8 }}>{w.vintage}</span>}
@@ -199,7 +200,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                         </div>
                         <button onClick={e => { e.stopPropagation(); onDrink(w) }}
                           style={{ background: T.wine + '33', border: `1px solid ${T.wine}`, color: T.wineLight, cursor: 'pointer', borderRadius: 6, padding: '5px 10px', fontSize: '0.75rem', flexShrink: 0 }}>
-                          마심
+                          {w.category === 'whisky' ? '시음' : '마심'}
                         </button>
                       </div>
                     )
