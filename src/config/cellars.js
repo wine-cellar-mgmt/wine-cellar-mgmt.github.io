@@ -121,6 +121,20 @@ export async function compressImage(file, maxW = 320, quality = 0.75) {
   }
 }
 
+// ── 가격 선별 규칙 (합리적 최고가) — 모든 가격 검색 프롬프트 공용 ──
+// 단순 최고가가 아니라 이상치를 걸러낸 뒤의 최고가를 기록한다.
+// prevKrw(직전 기록가)가 있으면 급변 검증 조항을 추가한다.
+export function priceGuardText(prevKrw) {
+  const prev = prevKrw
+    ? `\n- 참고 직전 기록가 ₩${Number(prevKrw).toLocaleString('ko-KR')}: 새 최고가가 이의 2.5배 초과 또는 40% 미만이면 서로 다른 출처 2곳 이상이 일치할 때만 채택, 아니면 그다음 후보 채택`
+    : ''
+  return `가격 선별 규칙 (합리적 최고가):
+- 기준 용량이 아닌 가격 제외: 매그넘·하프·미니어처, 세트/기프트박스, 케이스(6·12병) 단위
+- 경매 낙찰가, 품절 상품의 옛 표시가, 자릿수 오표기 제외
+- 후보가 2개 이상이면 중앙값의 3배 초과 가격은 이상치로 제외
+- 검증을 통과한 후보 중 가장 높은 KRW → wineSearcherPrice (통과 후보 없으면 null)${prev}`
+}
+
 // ── Anthropic API ────────────────────────────────────────────────
 // API 키는 Supabase Edge Function(anthropic-proxy)에만 존재한다.
 // 브라우저에는 키를 두지 않고, 로그인 세션 토큰으로 프록시를 호출한다.

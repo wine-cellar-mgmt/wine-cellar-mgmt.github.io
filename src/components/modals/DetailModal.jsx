@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge, isWhisky, openedBadge } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge, isWhisky, openedBadge, priceGuardText } from '../../config/cellars.js'
 import { callProxy, loadPriceHistory } from '../../lib/supabase.js'
 import { Btn, lbl, ImagePicker } from '../ui.jsx'
 
@@ -135,7 +135,9 @@ export function DetailModal({ wine, drinkLog = [], onClose, onDrink, onRemove, o
 - whiskybase.com / thewhiskyexchange.com
 - dailyshot.co.kr 등 한국 판매가 KRW
 - USD/GBP → 현재 환율 KRW 환산
-한국 KRW → wineSearcherPrice, 글로벌 USD → vivinoPrice
+
+${priceGuardText(form.wineSearcherPrice)}
+글로벌 USD → vivinoPrice
 abv는 도수 숫자, ageYears는 숙성연수 숫자(NAS면 null)
 숫자만, 모르면 null`
         : `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
@@ -145,7 +147,8 @@ abv는 도수 숫자, ageYears는 숙성연수 숫자(NAS면 null)
 - wine-searcher.com 한국 KRW
 - dailyshot.co.kr KRW
 - vivino.com USD → 현재 환율 KRW 환산
-세 가격 중 가장 높은 KRW → wineSearcherPrice
+
+${priceGuardText(form.wineSearcherPrice)}
 vivino USD 원본 → vivinoPrice
 숫자만, 모르면 null`
       const data = await callProxy([{ role: 'user', content: prompt }],

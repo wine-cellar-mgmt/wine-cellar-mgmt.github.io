@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CELLARS, cellarById, T, krw, getDrinkingStatus, callAI, bottleBadge, nameFingerprint } from '../../config/cellars.js'
+import { CELLARS, cellarById, T, krw, getDrinkingStatus, callAI, bottleBadge, nameFingerprint, priceGuardText } from '../../config/cellars.js'
 import { useIsMobile } from '../ui.jsx'
 
 // 음용 시기 상태 → 목록용 짧은 라벨 (칼럼이 좁으므로 축약; 전체 라벨은 title 툴팁으로)
@@ -14,17 +14,24 @@ function drinkShortLabel(s) {
 
 // 단일 와인 가격 검색 — callAI(=callProxy) 경유. API 키는 서버에만 존재.
 // pause_turn 이어가기는 callProxy 내부에서 처리. 견고한 JSON 추출(마지막 완성 객체).
-async function searchOnePrice(q) {
-  const prompt = `와인 "${q}"의 가격을 검색하여 JSON만 반환 (마크다운 없이):
-{"wineSearcherPrice":null,"vivinoPrice":null,"vivinoRating":null}
-
-가격 수집 방법 (750ml 기준):
+async function searchOnePrice(q, prevPrice = null, category = 'wine') {
+  const whisky = category === 'whisky'
+  const sources = whisky
+    ? `가격 수집 방법 (700ml 기준):
+- whiskybase.com / thewhiskyexchange.com 가격 조회
+- dailyshot.co.kr 등 한국 주류 판매가 KRW 조회
+- USD/GBP 가격은 현재 환율로 KRW 환산`
+    : `가격 수집 방법 (750ml 기준):
 - wine-searcher.com 한국(Korea) KRW 가격 조회
 - dailyshot.co.kr KRW 가격 조회
-- vivino.com USD 가격 조회 후 현재 환율로 KRW 환산
+- vivino.com USD 가격 조회 후 현재 환율로 KRW 환산`
+  const prompt = `${whisky ? '위스키' : '와인'} "${q}"의 가격을 검색하여 JSON만 반환 (마크다운 없이):
+{"wineSearcherPrice":null,"vivinoPrice":null,"vivinoRating":null}
 
-세 가격 중 가장 높은 KRW → wineSearcherPrice
-vivino USD 원본 → vivinoPrice
+${sources}
+
+${priceGuardText(prevPrice)}
+글로벌 USD 원본 → vivinoPrice${whisky ? ' (vivinoRating은 null)' : ''}
 숫자만, 모르면 null
 응답의 마지막은 반드시 완성된 JSON 객체 하나여야 한다.`
   const data = await callAI(
@@ -119,7 +126,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
       setPriceProgress({ current: i + 1, total: targets.length, name: w.name })
       try {
         const q = w.vintage ? `${w.name} ${w.vintage}` : w.name
-        const info = await searchOnePrice(q)
+        const info = await searchOnePrice(q, w.wineSearcherPrice, w.category)
         if (info && (info.wineSearcherPrice || info.vivinoPrice || info.vivinoRating)) {
           // App.jsx의 updateWine은 커스텀 이벤트로 트리거 (리스너는 1회 등록, winesRef 참조)
           window.dispatchEvent(new CustomEvent('cave:priceUpdate', { detail: { id: w.id, ...info } }))

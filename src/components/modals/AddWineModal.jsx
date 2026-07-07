@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CELLARS, getSlots, cellarById, T, uid, krw, callAI, BOTTLE_SIZES, CATEGORIES } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, uid, krw, callAI, BOTTLE_SIZES, CATEGORIES, priceGuardText } from '../../config/cellars.js'
 import { Btn, lbl, ImagePicker } from '../ui.jsx'
 
 export default function AddWineModal({ pre = {}, onAdd, onClose }) {
@@ -51,7 +51,7 @@ export default function AddWineModal({ pre = {}, onAdd, onClose }) {
 - dailyshot.co.kr 또는 한국 주류 판매가 KRW 조회
 - USD/GBP 가격은 현재 환율로 KRW 환산
 
-한국 시장 기준 KRW → wineSearcherPrice
+${priceGuardText()}
 글로벌 USD 가격 → vivinoPrice
 abv는 도수 숫자(예: 46), ageYears는 숙성연수 숫자(NAS면 null)
 숫자만, 모르면 null
@@ -64,7 +64,7 @@ abv는 도수 숫자(예: 46), ageYears는 숙성연수 숫자(NAS면 null)
 - dailyshot.co.kr KRW 가격 조회
 - vivino.com USD 가격 조회 후 현재 환율로 KRW 환산
 
-세 가격 중 가장 높은 KRW → wineSearcherPrice
+${priceGuardText()}
 vivino USD 원본 → vivinoPrice
 숫자만, 모르면 null
 응답의 마지막은 반드시 완성된 JSON 객체 하나여야 한다.`

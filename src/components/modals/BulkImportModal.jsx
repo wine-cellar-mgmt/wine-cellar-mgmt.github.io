@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CELLARS, getSlots, cellarById, T, uid, compressImage, BOTTLE_SIZES, CATEGORIES } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, uid, compressImage, BOTTLE_SIZES, CATEGORIES, priceGuardText } from '../../config/cellars.js'
 import { callProxy } from '../../lib/supabase.js'
 import { Btn, lbl } from '../ui.jsx'
 
@@ -168,7 +168,7 @@ export function BulkImportModal({ onAddMany, onClose }) {
 - dailyshot.co.kr 등 한국 주류 판매가 KRW 조회
 - USD/GBP 가격은 현재 환율로 KRW 환산
 
-- wineSearcherPrice: 한국 시장 기준 KRW 숫자만 (예: 180000)
+${priceGuardText()}
 - vivinoPrice: 글로벌 USD 숫자만
 - abv: 도수 숫자 (예: 46), ageYears: 숙성연수 숫자 (NAS면 null)
 - 모르는 필드는 null로 두세요.`
@@ -180,10 +180,7 @@ export function BulkImportModal({ onAddMany, onClose }) {
 - dailyshot.co.kr KRW 가격 조회
 - vivino.com USD 가격 조회 후 현재 환율로 KRW 환산
 
-위 세 가격 중 가장 높은 KRW 금액을 wineSearcherPrice에 입력하세요.
-vivinoPrice는 vivino.com USD 원본 가격 그대로 입력하세요.
-
-- wineSearcherPrice: KRW 숫자만, 가장 높은 가격 (예: 1100000)
+${priceGuardText()}
 - vivinoPrice: USD 숫자만, vivino 원본 (예: 634)
 - vivinoRating: Vivino 평점 숫자만 (예: 4.5)
 - 모르는 필드는 null로 두세요.`
