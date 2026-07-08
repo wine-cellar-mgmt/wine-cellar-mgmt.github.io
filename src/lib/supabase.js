@@ -157,6 +157,18 @@ export async function deleteDrink(id) {
   if (error) throw error
 }
 
+// ── 음주 세션 (여러 병을 한 자리에서 마셨을 때 날짜/함께한 사람/자리를 묶음) ──
+export async function insertDrinkSession(session) {
+  const { error } = await supabase.from('drink_sessions').insert(sessionToDb(session))
+  if (error) throw error
+}
+
+export async function insertDrinksBatch(records) {
+  if (!records?.length) return
+  const { error } = await supabase.from('drink_log').insert(records.map(drinkToDb))
+  if (error) throw error
+}
+
 export async function addPurchaseHistory(record) {
   const { error } = await supabase.from('purchase_history').insert(record)
   if (error) throw error
@@ -220,6 +232,7 @@ function drinkToDb(r) {
     occasion: r.occasion || '', rating: r.rating || 0,
     review: r.review || '', image_url: r.imageUrl || '',
     remaining_after: r.remainingAfter ?? null,
+    session_id: r.sessionId || null,
   }
 }
 
@@ -231,5 +244,10 @@ function dbToDrink(r) {
     occasion: r.occasion, rating: r.rating, review: r.review,
     imageUrl: r.image_url, createdAt: r.created_at,
     remainingAfter: r.remaining_after,
+    sessionId: r.session_id,
   }
+}
+
+function sessionToDb(s) {
+  return { id: s.id, date: s.date, companions: s.companions || '', occasion: s.occasion || '' }
 }

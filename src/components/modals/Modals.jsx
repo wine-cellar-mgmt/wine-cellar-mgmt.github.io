@@ -3,5 +3,5 @@
 // 기존 경로 호환을 위해 여기서도 재수출한다.
 export { DetailModal } from './DetailModal.jsx'
 export { DrinkModal } from './DrinkModal.jsx'
+export { BatchDrinkModal } from './BatchDrinkModal.jsx'
 export { SettingsModal } from './SettingsModal.jsx'
-export { BulkImportModal } from './BulkImportModal.jsx'

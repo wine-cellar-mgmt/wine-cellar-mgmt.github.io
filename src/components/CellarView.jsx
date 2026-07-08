@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CELLARS, getSlots, cellarById, T, krw, getDrinkingStatus, bottleBadge, openedBadge } from '../config/cellars.js'
 import { Btn, useIsMobile } from './ui.jsx'
 
-export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, onDrink, onDeleteMany }) {
+export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, onDrink, onDeleteMany, onDrinkMany }) {
   const [expanded, setExpanded] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -14,6 +14,11 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
   const allIds = cellarWines.map(w => w.id)
   const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id))
   const someSelected = selected.size > 0
+
+  // 일괄 마심 — 위스키는 시음 세션 로직이 달라 제외(개별 기록 이용)
+  const selectedWineObjs = cellarWines.filter(w => selected.has(w.id))
+  const drinkableSelected = selectedWineObjs.filter(w => w.category !== 'whisky')
+  const whiskyExcluded = selectedWineObjs.length - drinkableSelected.length
 
   function toggleSelect(id, e) {
     e.stopPropagation()
@@ -39,6 +44,12 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
 
   async function handleDeleteSelected() {
     await onDeleteMany([...selected])
+    clearSelection()
+  }
+
+  function handleDrinkSelected() {
+    if (!drinkableSelected.length) return
+    onDrinkMany(drinkableSelected)
     clearSelection()
   }
 
@@ -90,7 +101,15 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
             </span>
             <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: T.muted, fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}>선택 해제</button>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {drinkableSelected.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <button onClick={handleDrinkSelected} style={{ background: T.wine + '33', border: `1px solid ${T.wine}`, color: T.wineLight, borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
+                  🥂 선택한 {drinkableSelected.length}병 함께 마심
+                </button>
+                {whiskyExcluded > 0 && <span style={{ fontSize: '0.68rem', color: T.muted }}>위스키 {whiskyExcluded}종은 제외(개별 시음 기록 이용)</span>}
+              </div>
+            )}
             {confirmDelete ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#c0392b22', border: '1px solid #c0392b', borderRadius: 8, padding: '4px 10px' }}>
                 <span style={{ fontSize: '0.78rem', color: '#e07070' }}>{selected.size}개 삭제?</span>

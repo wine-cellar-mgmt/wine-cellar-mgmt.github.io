@@ -3,6 +3,7 @@ import { T, uid } from './config/cellars.js'
 import {
   loadWines, loadDrinkLog,
   upsertWine, upsertWines, deleteWine, deleteWines, insertDrink, deleteDrink,
+  insertDrinkSession, insertDrinksBatch,
   insertPriceHistory, uploadImage,
   signIn, getSession, onAuthChange
 } from './lib/supabase.js'
@@ -14,6 +15,7 @@ import { SearchView, ListView, DrinkLogView, StatisticsView, DrinkingWindowView 
 import AddWineModal from './components/modals/AddWineModal.jsx'
 import { DetailModal } from './components/modals/DetailModal.jsx'
 import { DrinkModal } from './components/modals/DrinkModal.jsx'
+import { BatchDrinkModal } from './components/modals/BatchDrinkModal.jsx'
 import { SettingsModal } from './components/modals/SettingsModal.jsx'
 import { Toast } from './components/ui.jsx'
 import './index.css'
@@ -312,6 +314,44 @@ export default function App() {
     catch { showToast('⚠ 기록 저장 실패', 'error') }
   }
 
+  // 일괄 마심(자리) — 여러 병을 한 세션으로 묶어 배치 처리. records는 BatchDrinkModal이 만든
+  // 병별 레코드(날짜/함께한사람/자리 공통 + 개별 평점/한마디), wines는 병 차감 대상 원본 와인들.
+  async function drinkWinesBatch(wines, records) {
+    const prev = winesRef.current
+    const toDelete = []
+    const toUpdate = []
+    for (const base of wines) {
+      const newQty = (base.qty || 1) - 1
+      if (newQty <= 0) toDelete.push(base.id)
+      else toUpdate.push({ ...base, qty: newQty })
+    }
+    const updatedMap = new Map(toUpdate.map(w => [w.id, w]))
+    applyWines(p => p.filter(w => !toDelete.includes(w.id)).map(w => updatedMap.get(w.id) || w))
+
+    const sessionId = uid()
+    const first = records[0] || {}
+    const finalRecords = await Promise.all(records.map(async r => {
+      let imageUrl = r.imageUrl
+      if (imageUrl && imageUrl.startsWith('data:')) {
+        try { imageUrl = await uploadImage(imageUrl, 'drink') } catch { /* 원본 유지 */ }
+      }
+      return { ...r, imageUrl, sessionId }
+    }))
+
+    try {
+      if (toDelete.length) await deleteWines(toDelete)
+      if (toUpdate.length) await upsertWines(toUpdate)
+      await insertDrinkSession({ id: sessionId, date: first.date, companions: first.companions, occasion: first.occasion })
+      await insertDrinksBatch(finalRecords)
+      setDrinkLog(p => [...finalRecords, ...p])
+      setSyncStatus('synced')
+      showToast(`🥂 ${wines.length}병 함께 마심 기록 완료`, 'success')
+    } catch {
+      applyWines(() => prev)
+      showToast('⚠ 일괄 기록 실패 — 되돌렸습니다', 'error')
+    }
+  }
+
   async function removeManyWines(ids) {
     const prev = winesRef.current
     applyWines(p => p.filter(w => !ids.includes(w.id)))
@@ -394,6 +434,7 @@ export default function App() {
   const openAdd    = (pre = {}) => setModal({ type: 'add', pre })
   const openDetail = (id)       => setModal({ type: 'detail', id })
   const openDrink  = (wine)     => setModal({ type: 'drink', wine })
+  const openDrinkMany = (wines) => setModal({ type: 'batchDrink', wines })
   const goSlot     = (cid, slot) => { setCellarId(cid); setTab('cellar') }
 
   const detailWine = modal?.type === 'detail' ? wines.find(w => w.id === modal.id) : null
@@ -420,7 +461,7 @@ export default function App() {
 
       <main style={{ flex: 1, padding: '24px 28px', maxWidth: 1060, margin: '0 auto', width: '100%', paddingBottom: 100 }}>
         {tab === 'dash'   && <Dashboard {...shared} setTab={setTab} openDetail={openDetail} />}
-        {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} />}
+        {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} onDrinkMany={openDrinkMany} onDeleteMany={removeManyWines} />}
         {tab === 'drinking' && <DrinkingWindowView wines={wines} openDetail={openDetail} onUpdate={updateWine} />}
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
@@ -442,6 +483,9 @@ export default function App() {
       )}
       {modal?.type === 'drink' && (
         <DrinkModal wine={modal.wine} onConfirm={record => { drinkWine(modal.wine, record); setModal(null) }} onClose={() => setModal(null)} />
+      )}
+      {modal?.type === 'batchDrink' && (
+        <BatchDrinkModal wines={modal.wines} onConfirm={records => { drinkWinesBatch(modal.wines, records); setModal(null) }} onClose={() => setModal(null)} />
       )}
       {detailWine && (
         <DetailModal
