@@ -41,12 +41,17 @@ export default function Dashboard({ wines, drinkLog, bottlesIn, setTab, setCella
   // 추천 와인 (지금 마시기 좋은 것 중 빈티지 오래된 순)
   const recommended = [...drinkNow].sort((a, b) => (a.vintage || 0) - (b.vintage || 0)).slice(0, 3)
 
+  // 음주 기록 — "회"는 자리(세션) 단위, "병"은 실제 마신 병 수(레코드 수)
+  const drinkSessionIds = new Set(drinkLog.filter(r => r.sessionId).map(r => r.sessionId))
+  const drinkSoloCount   = drinkLog.filter(r => !r.sessionId).length
+  const drinkOccasions   = drinkSessionIds.size + drinkSoloCount
+
   const stats = [
     { label: '총 와인 기록', val: `${wines.length}건`,   sub: '구매 기록 수' },
     { label: '총 보관 병 수', val: `${totalBottles}병`,  sub: `${usedSlots}/${totalSlots} 칸 사용` },
     { label: '구매가 합계',   val: krw(purchaseValue),   sub: `구매가 입력 ${pricedCount}종만` },
     { label: '시장가 합계',   val: krw(marketValue),     sub: `시장가 입력 ${marketCount}종 기준`, onClick: () => setTab('stats') },
-    { label: '음주 기록',     val: `${drinkLog.length}번`, sub: '마신 와인', onClick: () => setTab('log') },
+    { label: '음주 기록',     val: `${drinkOccasions}회`, sub: `${drinkLog.length}병`, onClick: () => setTab('log') },
   ]
 
   return (
