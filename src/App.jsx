@@ -23,6 +23,7 @@ import './index.css'
 // 코드 스플리팅 — 갤러리 방문자는 앱 본체를, 앱 사용자는 갤러리를 내려받지 않는다
 const SharedGallery = lazy(() => import('./components/SharedGallery.jsx'))
 const BulkImportModal = lazy(() => import('./components/modals/BulkImportModal.jsx').then(m => ({ default: m.BulkImportModal })))
+const ExternalDrinkModal = lazy(() => import('./components/modals/ExternalDrinkModal.jsx').then(m => ({ default: m.ExternalDrinkModal })))
 
 const Loading = ({ msg = '🍷' }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: T.bg, color: T.gold, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', letterSpacing: '0.1em' }}>
@@ -352,6 +353,36 @@ export default function App() {
     }
   }
 
+  // 밖에서 마신 와인 기록 — 재고(wines)와 무관하게 drink_log에만 기록.
+  // 1건이면 세션 없이 단건 insert, 2건 이상이면 세션으로 묶어 배치 insert.
+  async function addExternalDrink(records) {
+    if (!records?.length) return
+    const sessionId = records.length > 1 ? uid() : null
+    let finalRecords = records.map(r => ({ ...r, sessionId }))
+    finalRecords = await Promise.all(finalRecords.map(async r => {
+      let imageUrl = r.imageUrl
+      if (imageUrl && imageUrl.startsWith('data:')) {
+        try { imageUrl = await uploadImage(imageUrl, 'drink') } catch { /* 원본 유지 */ }
+      }
+      return { ...r, imageUrl }
+    }))
+    setDrinkLog(p => [...finalRecords, ...p])
+    try {
+      if (sessionId) {
+        await insertDrinkSession({ id: sessionId, date: finalRecords[0].date, companions: finalRecords[0].companions, occasion: finalRecords[0].occasion })
+        await insertDrinksBatch(finalRecords)
+      } else {
+        await insertDrink(finalRecords[0])
+      }
+      setSyncStatus('synced')
+      showToast(`🍾 외부 기록 ${finalRecords.length}건 저장됨`, 'success')
+    } catch {
+      const ids = new Set(finalRecords.map(r => r.id))
+      setDrinkLog(p => p.filter(r => !ids.has(r.id)))
+      showToast('⚠ 기록 저장 실패', 'error')
+    }
+  }
+
   async function removeManyWines(ids) {
     const prev = winesRef.current
     applyWines(p => p.filter(w => !ids.includes(w.id)))
@@ -463,7 +494,7 @@ export default function App() {
         {tab === 'dash'   && <Dashboard {...shared} setTab={setTab} openDetail={openDetail} />}
         {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} onDrinkMany={openDrinkMany} onDeleteMany={removeManyWines} />}
         {tab === 'drinking' && <DrinkingWindowView wines={wines} openDetail={openDetail} onUpdate={updateWine} />}
-        {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} />}
+        {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
         {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} />}
         {tab === 'stats'  && <StatisticsView wines={wines} drinkLog={drinkLog} />}
@@ -486,6 +517,11 @@ export default function App() {
       )}
       {modal?.type === 'batchDrink' && (
         <BatchDrinkModal wines={modal.wines} onConfirm={records => { drinkWinesBatch(modal.wines, records); setModal(null) }} onClose={() => setModal(null)} />
+      )}
+      {modal?.type === 'externalDrink' && (
+        <Suspense fallback={null}>
+          <ExternalDrinkModal onConfirm={records => { addExternalDrink(records); setModal(null) }} onClose={() => setModal(null)} />
+        </Suspense>
       )}
       {detailWine && (
         <DetailModal

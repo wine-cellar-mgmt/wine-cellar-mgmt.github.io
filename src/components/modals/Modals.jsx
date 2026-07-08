@@ -4,5 +4,6 @@
 export { DetailModal } from './DetailModal.jsx'
 export { DrinkModal } from './DrinkModal.jsx'
 export { BatchDrinkModal } from './BatchDrinkModal.jsx'
+export { ExternalDrinkModal } from './ExternalDrinkModal.jsx'
 export { SettingsModal } from './SettingsModal.jsx'
 export { BulkImportModal } from './BulkImportModal.jsx'

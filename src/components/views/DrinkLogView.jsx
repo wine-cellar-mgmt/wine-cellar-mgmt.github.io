@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { T, kdate, textMatchesQuery } from '../../config/cellars.js'
 
 // ── Drink Log View ───────────────────────────────────────────────
-export function DrinkLogView({ drinkLog, onDelete }) {
+export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
   const [filter, setFilter] = useState('')
   const [confirmId, setConfirmId] = useState(null)
   const filtered = useMemo(() => {
@@ -59,7 +59,7 @@ export function DrinkLogView({ drinkLog, onDelete }) {
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: T.cream }}>{r.wineName}</div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 3, flexWrap: 'wrap' }}>
                   {r.wineVintage && <span style={{ fontSize: '0.78rem', color: T.gold }}>{r.wineVintage}</span>}
-                  {r.cellarName && <span style={{ fontSize: '0.78rem', color: T.muted }}>{r.cellarName} 셀러 {r.slot}번 칸</span>}
+                  {r.cellarName && <span style={{ fontSize: '0.78rem', color: T.muted }}>{r.cellarName}{r.slot ? ` 셀러 ${r.slot}번 칸` : ''}</span>}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
@@ -127,10 +127,17 @@ export function DrinkLogView({ drinkLog, onDelete }) {
 
   return (
     <div className="fade-in">
-      <h1 className="heading">🍷 음주 기록</h1>
-      <p className="subheading">지금까지 {drinkLog.length}번의 와인을 즐겼습니다</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 className="heading">🍷 음주 기록</h1>
+          <p className="subheading">지금까지 {drinkLog.length}번의 와인을 즐겼습니다</p>
+        </div>
+        <button onClick={onAddExternal} style={{ background: T.gold + '22', border: `1px solid ${T.gold}44`, color: T.gold, borderRadius: 8, padding: '9px 16px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+          📷 밖에서 마신 와인 기록
+        </button>
+      </div>
       {drinkLog.length > 0 && (
-        <div style={{ maxWidth: 400, marginBottom: 20, position: 'relative' }}>
+        <div style={{ maxWidth: 400, margin: '18px 0 20px', position: 'relative' }}>
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}>🔍</span>
           <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="와인 이름, 함께한 사람 검색..." style={{ paddingLeft: 34 }} />
         </div>
