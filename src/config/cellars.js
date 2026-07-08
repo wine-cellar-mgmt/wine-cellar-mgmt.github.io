@@ -225,6 +225,8 @@ export const WINE_SYNONYMS = [
   ['moet chandon', 'moët & chandon', 'moet & chandon', '모에 샹동', '모에샹동', '모엣 샹동', '모엣샹동', '모엣'],
   // 뵈브 클리코
   ['veuve clicquot', 'veuve clicquot ponsardin', '뵈브 클리코', '뵈브클리코', '뵈브'],
+  // 돔 페리뇽
+  ['dom perignon', 'dom pérignon', '돔 페리뇽', '돔페리뇽', '돔'],
 ]
 
 // text 하나가 query와 매치되는지: 직접 포함 매칭 + 동의어 그룹 매칭
