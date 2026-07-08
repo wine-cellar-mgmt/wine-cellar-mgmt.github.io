@@ -1,72 +1,11 @@
 import { useState, useMemo } from 'react'
-import { cellarById, T, krw, bottleBadge, normalizeWineText } from '../../config/cellars.js'
+import { cellarById, T, krw, bottleBadge, textMatchesQuery } from '../../config/cellars.js'
 
-// ── 다국어 동의어 사전 ───────────────────────────────────────────
-const SYNONYMS = [
-  // 샤또 마고
-  ['chateau margaux', 'château margaux', '샤또 마고', '샤토 마고', 'margaux'],
-  // 라피트 로칠드
-  ['chateau lafite rothschild', 'château lafite rothschild', '샤또 라피트 로칠드', '라피트 로칠드', 'lafite', 'lafite rothschild'],
-  // 무통 로칠드
-  ['chateau mouton rothschild', 'château mouton rothschild', '샤또 무통 로칠드', '무통 로칠드', 'mouton rothschild'],
-  // 라투르
-  ['chateau latour', 'château latour', '샤또 라투르', '라투르', 'grand vin de château latour', 'grand vin de chateau latour'],
-  // 오브리옹
-  ['chateau haut-brion', 'château haut-brion', '샤또 오브리옹', '오브리옹', 'haut brion'],
-  // 오퍼스 원
-  ['opus one', '오퍼스 원', '오퍼스원'],
-  // 페트뤼스
-  ['petrus', 'pétrus', '페트뤼스', '페트루스'],
-  // 이켐
-  ["chateau d'yquem", "château d'yquem", '샤또 디켐', '디켐', 'yquem'],
-  // 시라/쉬라즈
-  ['shiraz', 'syrah', '시라', '쉬라', '쉬라즈'],
-  // 피노누아
-  ['pinot noir', '피노 누아', '피노누아'],
-  // 카베르네 소비뇽
-  ['cabernet sauvignon', '카베르네 소비뇽', '카베르네소비뇽', 'cab sauv'],
-  // 소비뇽 블랑
-  ['sauvignon blanc', '소비뇽 블랑', '소비뇽블랑'],
-  // 샤르도네
-  ['chardonnay', '샤르도네', '샤도네이'],
-  // 리슬링
-  ['riesling', '리슬링'],
-  // 말벡
-  ['malbec', '말벡'],
-  // 메를로
-  ['merlot', '메를로', '메를롯'],
-  // 그르나슈
-  ['grenache', 'garnacha', '그르나슈', '가르나차'],
-  // 로마네 콩티
-  ['romanee-conti', 'romanée-conti', '로마네 콩티', '로마네콩티', 'drc'],
-  // 부르고뉴
-  ['bourgogne', 'burgundy', '부르고뉴', '버건디'],
-  // 보르도
-  ['bordeaux', '보르도'],
-  // 캐이머스
-  ['caymus', '케이머스', '카이머스'],
-  // 모에 샹동
-  ['moet chandon', 'moët & chandon', 'moet & chandon', '모에 샹동', '모에샹동'],
-]
-
+// 동의어 사전(WINE_SYNONYMS)·매칭 로직은 cellars.js로 이동(음주기록 검색과 공용)
 function wineMatchesQuery(wine, query) {
   if (!query.trim()) return false
-  const q = normalizeWineText(query)
   const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, String(wine.vintage || '')]
-
-  // 1. 직접 매칭
-  const directMatch = fields.some(f => normalizeWineText(f).includes(q))
-  if (directMatch) return true
-
-  // 2. 동의어 매칭
-  const qGroup = SYNONYMS.find(group => group.some(s => normalizeWineText(s) === q || q.includes(normalizeWineText(s)) || normalizeWineText(s).includes(q)))
-  if (qGroup) {
-    return fields.some(f => {
-      const nf = normalizeWineText(f)
-      return qGroup.some(s => nf.includes(normalizeWineText(s)))
-    })
-  }
-  return false
+  return fields.some(f => textMatchesQuery(f, query))
 }
 
 // ── Search View ──────────────────────────────────────────────────

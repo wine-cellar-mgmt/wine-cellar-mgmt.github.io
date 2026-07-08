@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { T, kdate } from '../../config/cellars.js'
+import { T, kdate, textMatchesQuery } from '../../config/cellars.js'
 
 // ── Drink Log View ───────────────────────────────────────────────
 export function DrinkLogView({ drinkLog, onDelete }) {
@@ -8,7 +8,7 @@ export function DrinkLogView({ drinkLog, onDelete }) {
   const filtered = useMemo(() => {
     const sorted = [...drinkLog].sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
     return filter
-      ? sorted.filter(r => (r.wineName || '').toLowerCase().includes(filter.toLowerCase()) || (r.companions || '').toLowerCase().includes(filter.toLowerCase()))
+      ? sorted.filter(r => textMatchesQuery(r.wineName, filter) || (r.companions || '').toLowerCase().includes(filter.toLowerCase()))
       : sorted
   }, [drinkLog, filter])
 
