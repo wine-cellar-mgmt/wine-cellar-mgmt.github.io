@@ -55,6 +55,18 @@ export function bottleBadge(ml) {
   return `🍾 ${n >= 1000 ? (n / 1000) + 'L' : n + 'ml'}`
 }
 
+// 가격대별 숙성 임계값(연차) — 데일리 와인은 일찍, 고급 와인은 오래 버틴다고 가정.
+// 시장가(원화) 우선, 없으면 비비노(달러) 참고, 둘 다 없으면 프리미엄 취급(보수적 — 오판으로 급하게 마시라 재촉하지 않도록).
+function priceTierThresholds(wine) {
+  const krw = wine.wineSearcherPrice || 0
+  const usd = wine.vivinoPrice || 0
+  const cheap = (krw > 0 && krw < 50000) || (krw === 0 && usd > 0 && usd < 35)
+  const mid   = !cheap && ((krw > 0 && krw < 150000) || (krw === 0 && usd > 0 && usd < 100))
+  if (cheap) return { young: 3, ready: 7,  peak: 12 } // 데일리 와인
+  if (mid)   return { young: 4, ready: 10, peak: 20 } // 중가
+  return       { young: 5, ready: 15, peak: 30 }      // 프리미엄 / 가격 정보 없음
+}
+
 // ── 음용 적기 ────────────────────────────────────────────────────
 export function getDrinkingStatus(wine) {
   if (wine?.category === 'whisky') return null // 위스키는 음용 적기 개념 없음
@@ -75,10 +87,11 @@ export function getDrinkingStatus(wine) {
       return { status: 'decline', label: '빨리 마셔야', color: T.muted, icon: '⚪' }
     }
     const age = year - wine.vintage
-    if (age < 5)  return { status: 'young',  label: '숙성 중',     color: '#5b8dd9', icon: '🔵' }
-    if (age < 15) return { status: 'ready',  label: '마시기 좋음', color: '#4a8a5e', icon: '🟢' }
-    if (age < 30) return { status: 'peak',   label: '절정',        color: T.gold,    icon: '⭐' }
-    return            { status: 'decline', label: '빨리 마셔야',   color: T.muted,   icon: '⚪' }
+    const t = priceTierThresholds(wine)
+    if (age < t.young) return { status: 'young',  label: '숙성 중',     color: '#5b8dd9', icon: '🔵' }
+    if (age < t.ready) return { status: 'ready',  label: '마시기 좋음', color: '#4a8a5e', icon: '🟢' }
+    if (age < t.peak)  return { status: 'peak',   label: '절정',        color: T.gold,    icon: '⭐' }
+    return                    { status: 'decline', label: '빨리 마셔야',   color: T.muted,   icon: '⚪' }
   }
 
   if (year < from)  return { status: 'young',  label: `${from}년부터`,   color: '#5b8dd9', icon: '🔵', from, to }
