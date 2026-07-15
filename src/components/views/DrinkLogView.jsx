@@ -130,7 +130,7 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 className="heading">🍷 음주 기록</h1>
-          <p className="subheading">지금까지 {drinkLog.length}번의 와인을 즐겼습니다</p>
+          <p className="subheading">지금까지 {new Set(drinkLog.map(r => r.sessionId || `solo_${r.id}`)).size}회 · {drinkLog.length}병의 와인을 즐겼습니다</p>
         </div>
         <button onClick={onAddExternal} style={{ background: T.gold + '22', border: `1px solid ${T.gold}44`, color: T.gold, borderRadius: 8, padding: '9px 16px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
           📷 밖에서 마신 와인 기록

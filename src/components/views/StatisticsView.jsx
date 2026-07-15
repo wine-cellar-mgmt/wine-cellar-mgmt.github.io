@@ -10,23 +10,39 @@ export function StatisticsView({ wines, drinkLog }) {
 
   // 무거운 집계는 wines/drinkLog가 바뀔 때만 재계산
   const S = useMemo(() => {
+    // "회"는 자리(세션) 단위, "병"은 실제 마신 병 수(레코드 수) — Dashboard와 동일 기준
+    const occKey = r => r.sessionId || `solo_${r.id}`
     const monthlyData = {}
     drinkLog.forEach(r => {
       if (!r.date) return
       const ym = r.date.substring(0, 7)
-      monthlyData[ym] = (monthlyData[ym] || 0) + 1
+      if (!monthlyData[ym]) monthlyData[ym] = { occ: new Set(), bottles: 0 }
+      monthlyData[ym].occ.add(occKey(r))
+      monthlyData[ym].bottles++
     })
-    const months = Object.entries(monthlyData).sort((a,b) => b[0].localeCompare(a[0])).slice(0, 12)
+    const months = Object.entries(monthlyData)
+      .map(([ym, d]) => [ym, d.occ.size, d.bottles])
+      .sort((a,b) => b[0].localeCompare(a[0])).slice(0, 12)
+
+    const totalOccasions = new Set(drinkLog.map(occKey)).size
+    const yearLogs = drinkLog.filter(r => r.date?.startsWith(String(year)))
+    const yearOccasions = new Set(yearLogs.map(occKey)).size
+    const yearBottles = yearLogs.length
 
     const wineCount = {}
     drinkLog.forEach(r => { wineCount[r.wineName] = (wineCount[r.wineName] || 0) + 1 })
     const topWines = Object.entries(wineCount).sort((a,b) => b[1]-a[1]).slice(0, 5)
 
+    // 함께 마신 사람은 같은 자리에서 여러 병을 마셔도 1회로 집계
     const companionCount = {}
+    const seenCompanion = new Set()
     drinkLog.forEach(r => {
       if (!r.companions) return
       r.companions.split(/[,，、\s]+/).filter(Boolean).forEach(c => {
-        companionCount[c.trim()] = (companionCount[c.trim()] || 0) + 1
+        const name = c.trim(), key = name + '|' + occKey(r)
+        if (seenCompanion.has(key)) return
+        seenCompanion.add(key)
+        companionCount[name] = (companionCount[name] || 0) + 1
       })
     })
     const topCompanions = Object.entries(companionCount).sort((a,b) => b[1]-a[1]).slice(0, 5)
@@ -91,6 +107,7 @@ export function StatisticsView({ wines, drinkLog }) {
 
     return {
       months, topWines, topCompanions, avgRating,
+      totalOccasions, yearOccasions, yearBottles,
       totalPurchase, totalMarket, totalBottles,
       valued, valuedBottles, valuedGain, profitRate,
       cellarValues, topValue, gainList, topGain, topLoss,
@@ -98,7 +115,8 @@ export function StatisticsView({ wines, drinkLog }) {
     }
   }, [wines, drinkLog])
 
-  const { months, topWines, topCompanions, avgRating, totalPurchase, totalMarket, totalBottles,
+  const { months, topWines, topCompanions, avgRating, totalOccasions, yearOccasions, yearBottles,
+    totalPurchase, totalMarket, totalBottles,
     valued, valuedBottles, valuedGain, profitRate, cellarValues, topValue, gainList, topGain, topLoss,
     typeList, countryList } = S
   const distTotal = totalMarket
@@ -140,9 +158,10 @@ export function StatisticsView({ wines, drinkLog }) {
       <Card title="음주 기록 요약">
         <div style={{ display:'grid', gridTemplateColumns:`repeat(auto-fit,minmax(120px,1fr))`, gap:12 }}>
           {[
-            ['총 음주 횟수', `${drinkLog.length}번`],
+            ['총 음주 횟수', `${totalOccasions}회`],
+            ['총 마신 병 수', `${drinkLog.length}병`],
             ['평균 평점', `${avgRating}점`],
-            [`${year}년 음주`, `${drinkLog.filter(r=>r.date?.startsWith(String(year))).length}번`],
+            [`${year}년 음주`, `${yearOccasions}회 · ${yearBottles}병`],
           ].map(([k,v]) => (
             <div key={k} style={{ background:T.surface, borderRadius:8, padding:'10px 12px', border:`1px solid ${T.border}` }}>
               <div style={{ fontSize:'0.66rem', color:T.muted, marginBottom:5 }}>{k}</div>
@@ -153,16 +172,16 @@ export function StatisticsView({ wines, drinkLog }) {
       </Card>
 
       {months.length > 0 && (
-        <Card title="월별 음주 횟수 (최근 12개월)">
+        <Card title="월별 음주 (최근 12개월)">
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {months.map(([ym, cnt]) => {
-              const max = Math.max(...months.map(m=>m[1]))
+            {months.map(([ym, occ, cnt]) => {
+              const max = Math.max(...months.map(m=>m[2]))
               return (
                 <div key={ym} style={{ display:'flex', gap:10, alignItems:'center' }}>
                   <div style={{ fontSize:'0.78rem', color:T.muted, width:60, flexShrink:0 }}>{ym}</div>
                   <div style={{ flex:1, height:'100%', borderRadius:4, overflow:'hidden' }}>
                     <div style={{ height:20, borderRadius:4, background:`linear-gradient(90deg,${T.wine},${T.gold})`, width:`${cnt/max*100}%`, display:'flex', alignItems:'center', paddingLeft:8 }}>
-                      <span style={{ fontSize:'0.7rem', color:T.cream, fontWeight:600 }}>{cnt}번</span>
+                      <span style={{ fontSize:'0.7rem', color:T.cream, fontWeight:600, whiteSpace:'nowrap' }}>{occ}회 · {cnt}병</span>
                     </div>
                   </div>
                 </div>
@@ -178,7 +197,7 @@ export function StatisticsView({ wines, drinkLog }) {
             <div key={name} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:i<topWines.length-1?`1px solid ${T.border}`:'none' }}>
               <div style={{ width:24, height:24, borderRadius:'50%', background:i===0?T.gold:T.surface, border:`1px solid ${i===0?T.gold:T.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.72rem', color:i===0?T.bg:T.muted, fontWeight:700 }}>{i+1}</div>
               <div style={{ flex:1, fontSize:'0.88rem', color:T.cream }}>{name}</div>
-              <div style={{ fontSize:'0.82rem', color:T.gold, fontWeight:600 }}>{cnt}번</div>
+              <div style={{ fontSize:'0.82rem', color:T.gold, fontWeight:600 }}>{cnt}병</div>
             </div>
           ))}
         </Card>
