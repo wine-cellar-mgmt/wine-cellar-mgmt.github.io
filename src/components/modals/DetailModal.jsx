@@ -92,6 +92,7 @@ export function DetailModal({ wine, drinkLog = [], onClose, onDrink, onRemove, o
   const [editing, setEditing] = useState(false)
   const [moving, setMoving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [imgZoom, setImgZoom] = useState(false) // 이미지 확대 보기 (라이트박스)
   const [form, setForm] = useState({ ...wine })
   const [aiLoad, setAiLoad] = useState(false)
   // 위치 이동 전용 상태 (전체 수정 폼과 분리)
@@ -334,7 +335,9 @@ vivino USD 원본 → vivinoPrice
       <div className="modal-box" style={{ maxWidth: 480 }}>
         <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
           {wine.imageUrl
-            ? <img src={wine.imageUrl} alt={wine.name} style={{ width: 80, height: 112, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
+            ? <img src={wine.imageUrl} alt={wine.name} title="클릭하면 크게 보기" onClick={() => setImgZoom(true)}
+                style={{ width: 80, height: 112, objectFit: 'contain', borderRadius: 8, flexShrink: 0, background: T.surface, border: `1px solid ${T.border}`, cursor: 'zoom-in' }}
+                onError={e => e.target.style.display = 'none'} />
             : <div style={{ width: 80, height: 112, background: T.surface, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', border: `1px solid ${T.border}` }}>{whisky ? '🥃' : '🍷'}</div>
           }
           <div style={{ flex: 1 }}>
@@ -419,6 +422,17 @@ vivino USD 원본 → vivinoPrice
           </div>
         </div>
       </div>
+
+      {/* 이미지 확대 라이트박스 — 클릭하면 닫힘 */}
+      {imgZoom && wine.imageUrl && (
+        <div onClick={e => { e.stopPropagation(); setImgZoom(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 24 }}>
+          <img src={wine.imageUrl} alt={wine.name}
+            style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: 10 }} />
+          <button onClick={e => { e.stopPropagation(); setImgZoom(false) }}
+            style={{ position: 'fixed', top: 18, right: 22, background: 'none', border: 'none', color: '#fff', fontSize: '1.6rem', cursor: 'pointer' }}>✕</button>
+        </div>
+      )}
     </div>
   )
 }
