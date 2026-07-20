@@ -4,7 +4,7 @@ import { cellarById, T, krw, bottleBadge, textMatchesQuery } from '../../config/
 // 동의어 사전(WINE_SYNONYMS)·매칭 로직은 cellars.js로 이동(음주기록 검색과 공용)
 function wineMatchesQuery(wine, query) {
   if (!query.trim()) return false
-  const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, String(wine.vintage || '')]
+  const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, wine.notes, String(wine.vintage || '')]
   return fields.some(f => textMatchesQuery(f, query))
 }
 
@@ -19,10 +19,10 @@ export function SearchView({ wines, openDetail, openDrink, goSlot }) {
   return (
     <div className="fade-in">
       <h1 className="heading">검색</h1>
-      <p className="subheading">와인 이름, 빈티지로 검색하세요</p>
+      <p className="subheading">와인 이름, 빈티지, 메모로 검색하세요</p>
       <div style={{ maxWidth: 520, marginBottom: 28, position: 'relative' }}>
         <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>🔍</span>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="와인 이름, 빈티지 검색..." autoFocus style={{ paddingLeft: 40, height: 50, fontSize: '1rem' }} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="와인 이름, 빈티지, 메모 검색..." autoFocus style={{ paddingLeft: 40, height: 50, fontSize: '1rem' }} />
         {q && <button onClick={() => setQ('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: T.muted, fontSize: '1.1rem' }}>✕</button>}
       </div>
       {!q.trim() && <div style={{ textAlign: 'center', padding: '48px 0', color: T.muted }}><div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🔍</div><div>검색어를 입력하세요</div></div>}
