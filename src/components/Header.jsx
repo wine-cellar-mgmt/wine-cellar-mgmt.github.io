@@ -7,6 +7,7 @@ const TABS = [
   { id:'drinking', label:'음용 적기', icon:'⏰' },
   { id:'log',    label:'음주 기록', icon:'📖' },
   { id:'stats',  label:'통계',     icon:'📊' },
+  { id:'producer', label:'생산자', icon:'🏛️' },
   { id:'search', label:'검색',     icon:'🔍' },
   { id:'list',   label:'전체 목록', icon:'📋' },
 ]

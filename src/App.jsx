@@ -11,7 +11,7 @@ import {
 import Header from './components/Header.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import CellarView from './components/CellarView.jsx'
-import { SearchView, ListView, DrinkLogView, StatisticsView, DrinkingWindowView } from './components/Views.jsx'
+import { SearchView, ProducerView, ListView, DrinkLogView, StatisticsView, DrinkingWindowView } from './components/Views.jsx'
 import AddWineModal from './components/modals/AddWineModal.jsx'
 import { DetailModal } from './components/modals/DetailModal.jsx'
 import { DrinkModal } from './components/modals/DrinkModal.jsx'
@@ -495,6 +495,7 @@ export default function App() {
         {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} onDrinkMany={openDrinkMany} onDeleteMany={removeManyWines} />}
         {tab === 'drinking' && <DrinkingWindowView wines={wines} openDetail={openDetail} onUpdate={updateWine} />}
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
+        {tab === 'producer' && <ProducerView {...shared} onUpdate={updateWine} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
         {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} />}
         {tab === 'stats'  && <StatisticsView wines={wines} drinkLog={drinkLog} />}
