@@ -57,6 +57,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
   const mobile = useIsMobile()
   const [sort, setSort] = useState('name')
   const [filterCellar, setFilterCellar] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')  // '' 전체 | 'wine' 와인 | 'nonwine' 위스키·기타
   const [selected, setSelected] = useState(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [priceUpdating, setPriceUpdating] = useState(false)
@@ -67,6 +68,8 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
 
   const sorted = useMemo(() => [...wines]
     .filter(w => !filterCellar || w.cellarId === filterCellar)
+    .filter(w => !filterCategory
+      || (filterCategory === 'wine' ? (w.category || 'wine') === 'wine' : (w.category || 'wine') !== 'wine'))
     .sort((a, b) => {
       if (sort === 'name')    return (a.name || '').localeCompare(b.name || '', 'ko')
       if (sort === 'vintage') return (b.vintage || 0) - (a.vintage || 0)
@@ -74,7 +77,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
       if (sort === 'market')  return (b.wineSearcherPrice || 0) - (a.wineSearcherPrice || 0)
       if (sort === 'date')    return new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0)
       return 0
-    }), [wines, filterCellar, sort])
+    }), [wines, filterCellar, filterCategory, sort])
 
   // 비슷한 이름 묶기 그룹 — 묶기 모드일 때만 계산
   const groupList = useMemo(() => {
@@ -187,6 +190,11 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
               </button>
             </div>
           )}
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
+            <option value="">전체 종류</option>
+            <option value="wine">🍷 와인</option>
+            <option value="nonwine">🥃 위스키·기타</option>
+          </select>
           <select value={filterCellar} onChange={e => setFilterCellar(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
             <option value="">전체 셀러</option>
             {CELLARS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
