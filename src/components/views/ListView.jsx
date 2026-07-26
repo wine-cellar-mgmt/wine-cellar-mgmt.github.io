@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CELLARS, cellarById, T, krw, getDrinkingStatus, callAI, bottleBadge, nameFingerprint, priceGuardText } from '../../config/cellars.js'
+import { CELLARS, cellarById, T, krw, getDrinkingStatus, callAI, bottleBadge, openedBadge, nameFingerprint, priceGuardText } from '../../config/cellars.js'
 import { useIsMobile } from '../ui.jsx'
 
 // 음용 시기 상태 → 목록용 짧은 라벨 (칼럼이 좁으므로 축약; 전체 라벨은 title 툴팁으로)
@@ -280,7 +280,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
                                         <span style={{ flex: 1, minWidth: 0, color: willChange ? T.wineLight : T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                           {willChange && <span title="통일 시 이 이름이 바뀝니다" style={{ marginRight: 4 }}>✏️</span>}
                                           {dup && <span title="빈티지·위치까지 같은 중복 레코드" style={{ marginRight: 4, color: T.gold }}>🔁</span>}
-                                          {w.name}{bottleBadge(w.bottleSize) ? ` ${bottleBadge(w.bottleSize)}` : ''}
+                                          {w.name}{bottleBadge(w.bottleSize) ? ` ${bottleBadge(w.bottleSize)}` : ''}{openedBadge(w) ? ` ${openedBadge(w)}` : ''}
                                           {dup && <span style={{ color: T.muted, fontSize: '0.72rem', marginLeft: 6 }}>({cl.length}개 레코드)</span>}
                                         </span>
                                         <span style={{ color: T.gold, width: 46, textAlign: 'right', flexShrink: 0 }}>{w.vintage || '??'}</span>
@@ -325,6 +325,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
                         <div style={{ fontSize: '0.875rem', fontWeight: 500, color: T.cream, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
                         <div style={{ fontSize: '0.72rem', color: T.muted, marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {w.vintage && <span style={{ color: T.gold }}>{w.vintage}</span>}{bottleBadge(w.bottleSize) && <span style={{ color: T.wineLight, fontWeight: 600 }}>{bottleBadge(w.bottleSize)}</span>}
+                          {openedBadge(w) && <span style={{ color: T.gold, fontWeight: 600 }}>{openedBadge(w)}</span>}
                           <span>{w.qty || 1}병</span>
                           {w.price > 0 && <span>{krw(w.price)}</span>}
                           {w.wineSearcherPrice > 0 && <span style={{ color: T.gold }}>시장가 {krw(w.wineSearcherPrice)}</span>}
@@ -371,6 +372,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                         <div style={{ fontSize: '0.875rem', fontWeight: 500, color: T.cream, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
                         {bottleBadge(w.bottleSize) && <span style={{ fontSize: '0.7rem', color: T.wineLight, fontWeight: 600, flexShrink: 0 }}>{bottleBadge(w.bottleSize)}</span>}
+                        {openedBadge(w) && <span title="개봉 후 남은 양" style={{ fontSize: '0.7rem', color: T.gold, fontWeight: 600, flexShrink: 0 }}>{openedBadge(w)}</span>}
                       </div>
                       {w.notes && <div style={{ fontSize: '0.7rem', color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.notes}</div>}
                     </div>

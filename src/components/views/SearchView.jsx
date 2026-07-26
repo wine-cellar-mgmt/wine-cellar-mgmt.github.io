@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { cellarById, T, krw, bottleBadge, textMatchesQuery } from '../../config/cellars.js'
+import { cellarById, T, krw, bottleBadge, openedBadge, textMatchesQuery } from '../../config/cellars.js'
 
 // 동의어 사전(WINE_SYNONYMS)·매칭 로직은 cellars.js로 이동(음주기록 검색과 공용)
 // 종류 키워드로 검색하면 category로도 매칭 — '위스키/데킬라/꼬냑…'은 모두 whisky 카테고리, '와인'은 wine
@@ -66,6 +66,7 @@ export function SearchView({ wines, openDetail, openDrink, goSlot }) {
                     <div style={{ fontSize: '0.875rem', fontWeight: 500, color: T.cream, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
                     <div style={{ fontSize: '0.72rem', color: T.muted, marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {w.vintage && <span style={{ color: T.gold }}>{w.vintage}</span>}{bottleBadge(w.bottleSize) && <span style={{ color: T.wineLight, fontWeight: 600 }}>{bottleBadge(w.bottleSize)}</span>}
+                      {openedBadge(w) && <span style={{ color: T.gold, fontWeight: 600 }}>{openedBadge(w)}</span>}
                       <span>{w.qty || 1}병</span>
                       {w.price > 0 && <span>구매가 {krw(w.price)}</span>}
                     </div>
