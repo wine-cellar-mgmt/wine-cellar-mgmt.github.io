@@ -7,11 +7,27 @@ const CATEGORY_QUERY = {
   '와인': 'wine', 'wine': 'wine',
   '위스키': 'whisky', '위스끼': 'whisky', 'whisky': 'whisky', 'whiskey': 'whisky',
 }
+// 숙성연수/빈티지 검색: '30년', '３０년', '30년산', '30 years', '30yo' → 숫자 30으로 해석
+// 전각 숫자도 허용하고, 숙성연수(ageYears)·빈티지 모두와 비교한다.
+function ageQueryNumber(query) {
+  const q = query.trim()
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .toLowerCase()
+  const m = q.match(/^(\d{1,4})\s*(년산|년|years old|year old|years|year|yo|y)?$/)
+  return m ? { num: parseInt(m[1]), hadUnit: !!m[2] } : null
+}
+
 function wineMatchesQuery(wine, query) {
   if (!query.trim()) return false
   const cat = CATEGORY_QUERY[query.trim().toLowerCase()]
   if (cat && (wine.category || 'wine') === cat) return true
-  const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, wine.notes, String(wine.vintage || '')]
+  const age = ageQueryNumber(query)
+  if (age) {
+    if (Number(wine.ageYears) === age.num) return true
+    if (Number(wine.vintage) === age.num) return true
+  }
+  const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, wine.notes,
+    String(wine.vintage || ''), wine.ageYears ? `${wine.ageYears}년 ${wine.ageYears} years` : '']
   return fields.some(f => textMatchesQuery(f, query))
 }
 

@@ -296,9 +296,14 @@ export function copyToClipboard(text) {
 // nameFingerprint: 등급·수식어와 타입/지역 꼬리표를 걷어낸 "핵심 이름".
 //   같은 와인의 다른 표기를 같은 값으로 모은다.
 //   주의: Brut/Rosé/Classic/Sec 등 제품을 실제로 구분하는 단어는 일부러 남긴다.
+// 전각(Fullwidth) 영숫자·기호를 반각으로 — 전각으로 입력해도 검색되게 한다 (예: '３０ Years' → '30 years')
+const toHalfWidth = s => s
+  .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+  .replace(/　/g, ' ')
+
 export function normalizeWineText(text) {
   if (!text) return ''
-  return text.toLowerCase()
+  return toHalfWidth(text).toLowerCase()
     .replace(/château/gi, 'chateau')
     .replace(/é/g, 'e').replace(/è/g, 'e').replace(/ê/g, 'e')
     .replace(/à/g, 'a').replace(/â/g, 'a')
