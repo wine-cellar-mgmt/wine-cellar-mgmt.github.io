@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react'
-import { T, kdate, textMatchesQuery } from '../../config/cellars.js'
+import { T, kdate, textMatchesQuery, krw } from '../../config/cellars.js'
+
+// 값어치(한국 시장가 ₩) 헬퍼 — 앱의 다른 화면과 동일 기준
+const wineValue = r => Number(r.wineSearcherPrice) || 0
+const sumValue = arr => arr.reduce((s, r) => s + wineValue(r), 0)
 
 // ── Drink Log View ───────────────────────────────────────────────
 export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
@@ -32,6 +36,10 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
     }
     return out
   }, [filtered])
+
+  // 값어치 합계 (Level 1 — 총 합계). 시장가(₩) 입력된 기록만 합산.
+  const totalValue = useMemo(() => sumValue(drinkLog), [drinkLog])
+  const valuedCount = useMemo(() => drinkLog.filter(r => wineValue(r) > 0).length, [drinkLog])
 
   // 삭제 확인 버튼 (단건/세션 내 개별 항목 공용)
   function DeleteConfirm({ id }) {
@@ -69,6 +77,7 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
                     {'⭐'.repeat(r.rating)}<span style={{ color: T.border }}>{'⭐'.repeat(5 - r.rating)}</span>
                   </div>
                 )}
+                {wineValue(r) > 0 && <div style={{ fontSize: '0.8rem', color: T.gold, marginTop: 3 }}>💰 {krw(wineValue(r))}</div>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: r.review ? 10 : 0 }}>
@@ -87,6 +96,7 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
 
   // 일괄 마심(자리) 세션 카드 — 날짜/함께한 사람/자리는 한 번, 병별로 이름/평점/한마디만 나열
   function SessionCard({ g }) {
+    const sessionSum = sumValue(g.items)  // Level 2 — 회차별 합계
     return (
       <div style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
@@ -95,7 +105,10 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
             {g.companions && <span style={{ fontSize: '0.82rem', color: T.text }}>👥 {g.companions}</span>}
             {g.occasion && <span style={{ fontSize: '0.82rem', color: T.text }}>🎉 {g.occasion}</span>}
           </div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 500, color: T.cream, flexShrink: 0 }}>{kdate(g.date)}</div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: T.cream }}>{kdate(g.date)}</div>
+            {sessionSum > 0 && <div style={{ fontSize: '0.85rem', color: T.gold, marginTop: 2, fontWeight: 600 }}>💰 {krw(sessionSum)}</div>}
+          </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {g.items.map(r => (
@@ -107,11 +120,14 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
                     <span style={{ fontSize: '0.95rem', fontWeight: 500, color: T.cream }}>{r.wineName}</span>
                     {r.wineVintage && <span style={{ fontSize: '0.78rem', color: T.gold, marginLeft: 8 }}>{r.wineVintage}</span>}
                   </div>
-                  {r.rating > 0 && (
-                    <div style={{ color: T.gold }}>
-                      {'⭐'.repeat(r.rating)}<span style={{ color: T.border }}>{'⭐'.repeat(5 - r.rating)}</span>
-                    </div>
-                  )}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {r.rating > 0 && (
+                      <div style={{ color: T.gold }}>
+                        {'⭐'.repeat(r.rating)}<span style={{ color: T.border }}>{'⭐'.repeat(5 - r.rating)}</span>
+                      </div>
+                    )}
+                    {wineValue(r) > 0 && <div style={{ fontSize: '0.75rem', color: T.muted, marginTop: 2 }}>{krw(wineValue(r))}</div>}
+                  </div>
                 </div>
                 {r.review && <p style={{ fontSize: '0.82rem', color: T.text, lineHeight: 1.5, fontStyle: 'italic', marginTop: 4 }}>{r.review}</p>}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
@@ -136,6 +152,13 @@ export function DrinkLogView({ drinkLog, onDelete, onAddExternal }) {
           📷 밖에서 마신 와인 기록
         </button>
       </div>
+      {totalValue > 0 && (
+        <div style={{ marginTop: 16, background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: T.muted }}>💰 지금까지 마신 와인 값어치 합계</span>
+          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', fontWeight: 600, color: T.gold }}>{krw(totalValue)}</span>
+          <span style={{ fontSize: '0.75rem', color: T.muted }}>· 시장가 입력 {valuedCount}병 기준</span>
+        </div>
+      )}
       {drinkLog.length > 0 && (
         <div style={{ maxWidth: 400, margin: '18px 0 20px', position: 'relative' }}>
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}>🔍</span>

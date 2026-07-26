@@ -233,6 +233,8 @@ function drinkToDb(r) {
     review: r.review || '', image_url: r.imageUrl || '',
     remaining_after: r.remainingAfter ?? null,
     session_id: r.sessionId || null,
+    wine_searcher_price: r.wineSearcherPrice ?? null,
+    vivino_price: r.vivinoPrice ?? null,
   }
 }
 
@@ -245,6 +247,8 @@ function dbToDrink(r) {
     imageUrl: r.image_url, createdAt: r.created_at,
     remainingAfter: r.remaining_after,
     sessionId: r.session_id,
+    wineSearcherPrice: r.wine_searcher_price,
+    vivinoPrice: r.vivino_price,
   }
 }
 

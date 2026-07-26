@@ -270,7 +270,7 @@ export default function App() {
       const updates = { remainingPct: record.remainingAfter ?? base.remainingPct ?? 100 }
       if (!base.openedDate) updates.openedDate = record.date
       await updateWine(base.id, updates)
-      let r = { ...record, id: record.id || uid() }
+      let r = { ...record, id: record.id || uid(), wineSearcherPrice: base.wineSearcherPrice ?? null, vivinoPrice: base.vivinoPrice ?? null }
       delete r.emptyBottle
       if (r.imageUrl && r.imageUrl.startsWith('data:')) {
         try { r.imageUrl = await uploadImage(r.imageUrl, 'drink') } catch { /* 원본 유지 */ }
@@ -304,8 +304,8 @@ export default function App() {
         return
       }
     }
-    // Add drink record (사진은 Storage에 업로드)
-    let r = { ...record, id: record.id || uid() }
+    // Add drink record (사진은 Storage에 업로드) — 마신 시점의 값어치 스냅샷 저장
+    let r = { ...record, id: record.id || uid(), wineSearcherPrice: base.wineSearcherPrice ?? null, vivinoPrice: base.vivinoPrice ?? null }
     delete r.emptyBottle
     if (r.imageUrl && r.imageUrl.startsWith('data:')) {
       try { r.imageUrl = await uploadImage(r.imageUrl, 'drink') } catch { /* 원본 유지 */ }
@@ -331,12 +331,14 @@ export default function App() {
 
     const sessionId = uid()
     const first = records[0] || {}
+    const priceMap = new Map(wines.map(w => [w.id, w]))  // wineId → 값어치 스냅샷
     const finalRecords = await Promise.all(records.map(async r => {
       let imageUrl = r.imageUrl
       if (imageUrl && imageUrl.startsWith('data:')) {
         try { imageUrl = await uploadImage(imageUrl, 'drink') } catch { /* 원본 유지 */ }
       }
-      return { ...r, imageUrl, sessionId }
+      const src = priceMap.get(r.wineId)
+      return { ...r, imageUrl, sessionId, wineSearcherPrice: src?.wineSearcherPrice ?? null, vivinoPrice: src?.vivinoPrice ?? null }
     }))
 
     try {
