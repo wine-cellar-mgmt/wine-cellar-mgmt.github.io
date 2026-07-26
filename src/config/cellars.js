@@ -12,9 +12,12 @@ export const CATEGORIES = [
   { id: 'whisky', label: '위스키', icon: '🥃' },
 ]
 export const isWhisky = w => w?.category === 'whisky'
+// 개봉 여부: 개봉일이 있거나, 개봉일을 몰라도 잔량이 입력돼 있으면 개봉으로 본다
+// (오래 전에 열어 개봉일을 기억하지 못하는 병 대응)
+export const isOpened = w => isWhisky(w) && (!!w.openedDate || w.remainingPct != null)
 // 개봉 배지: 위스키가 개봉된 경우에만 표시 (예: 🥃 개봉 55%)
 export function openedBadge(w) {
-  if (!isWhisky(w) || !w.openedDate) return null
+  if (!isOpened(w)) return null
   const pct = w.remainingPct == null ? 100 : w.remainingPct
   return `🥃 개봉 ${pct}%`
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cellarById, T, uid, isWhisky } from '../../config/cellars.js'
+import { cellarById, T, uid, isWhisky, isOpened } from '../../config/cellars.js'
 import { Btn, lbl, StarRating } from '../ui.jsx'
 
 // ── Drink Modal ─────────────────────────────────────────────────
@@ -39,7 +39,7 @@ export function DrinkModal({ wine, onConfirm, onClose }) {
             {wine.vintage && <div style={{ fontSize: '0.85rem', color: T.gold, marginTop: 3 }}>{wine.vintage}</div>}
             <div style={{ fontSize: '0.75rem', color: T.muted, marginTop: 2 }}>
               {c?.name} · {wine.slot}번 칸 · {whisky
-                ? (wine.openedDate ? `개봉 병 잔량 ${curRemaining}%` : '미개봉 (첫 기록 시 개봉 처리)')
+                ? (isOpened(wine) ? `개봉 병 잔량 ${curRemaining}%` : '미개봉 (첫 기록 시 개봉 처리)')
                 : `${wine.qty || 1}병 중 1병 차감`}
             </div>
           </div>

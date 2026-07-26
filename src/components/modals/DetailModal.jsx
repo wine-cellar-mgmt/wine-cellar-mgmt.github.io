@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge, isWhisky, openedBadge, priceGuardText } from '../../config/cellars.js'
+import { CELLARS, getSlots, cellarById, T, krw, kdate, BOTTLE_SIZES, bottleBadge, isWhisky, isOpened, openedBadge, priceGuardText } from '../../config/cellars.js'
 import { callProxy, loadPriceHistory } from '../../lib/supabase.js'
 import { Btn, lbl, ImagePicker } from '../ui.jsx'
 
@@ -425,7 +425,9 @@ vivino USD 원본 → vivinoPrice
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           {[['수량', `${wine.qty || 1}병`], ['구매가격', krw(wine.price)], ['구매일', kdate(wine.purchaseDate)], ['위치', `${c?.name} · ${wine.slot}번 칸`],
-            ...(whisky ? [['개봉 상태', wine.openedDate ? `${kdate(wine.openedDate)} 개봉 · 잔량 ${wine.remainingPct == null ? 100 : wine.remainingPct}%` : '미개봉'], ['시음 횟수', `${sessions.length}회`]] : [])
+            ...(whisky ? [['개봉 상태', isOpened(wine)
+                ? `${wine.openedDate ? kdate(wine.openedDate) + ' 개봉' : '개봉(일자 미기록)'} · 잔량 ${wine.remainingPct == null ? 100 : wine.remainingPct}%`
+                : '미개봉'], ['시음 횟수', `${sessions.length}회`]] : [])
           ].map(([k, v]) => (
             <div key={k} style={{ background: T.surface, borderRadius: 8, padding: '10px 12px', border: `1px solid ${T.border}` }}>
               <div style={{ fontSize: '0.66rem', color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{k}</div>
