@@ -50,6 +50,12 @@ bottleSize: 이 제품이 실제로 판매되는 병 용량을 ml 정수로 (예
 - 로얄살루트 32년처럼 500ml로만 나오는 제품, 고량주·백주 소용량(300/500ml), 미국 시장 750ml 등 제품별 실제 규격을 확인해 기재
 - 여러 규격이 있으면 가장 일반적인 것, 확실하지 않으면 null
 
+region 규칙 (국가 > 지역 > 생산자 트리에 쓰이므로 일관성이 중요):
+- 싱글몰트·단일 산지 제품은 실제 산지를 영문으로 (예: Speyside, Islay, Highland, Orkney, Osaka, Yamanashi, Miyagi, Kentucky, Tennessee, Jalisco)
+- 단일 산지가 없는 블렌디드는 분류명으로: 스코틀랜드 블렌디드 → "Blended Scotch", 일본 블렌디드 → "Blended Japanese"
+- region에 국가명을 그대로 넣거나(예: country=Japan에 region=Japan) 증류소명을 넣지 말 것
+- producer는 증류소명, 블렌디드는 블렌더·브랜드명 (예: Johnnie Walker, Ballantine's)
+
 가격 수집 방법 (700ml 1병 기준):
 - whiskybase.com / thewhiskyexchange.com 가격 조회
 - dailyshot.co.kr 또는 한국 주류 판매가 KRW 조회

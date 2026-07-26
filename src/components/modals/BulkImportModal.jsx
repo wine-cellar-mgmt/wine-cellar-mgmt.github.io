@@ -56,6 +56,9 @@ ${priceGuardText()}
 - vivinoPrice: 글로벌 USD 숫자만
 - abv: 도수 숫자 (예: 46), ageYears: 숙성연수 숫자 (없거나 NAS면 null)
 - bottleSize: 실제 판매 병 용량 ml 정수 (예: 700, 750, 500, 1000). 확실하지 않으면 null
+- region: 단일 산지 제품은 실제 산지 영문(Speyside, Islay, Highland, Osaka, Kentucky, Jalisco 등).
+  단일 산지가 없는 블렌디드는 "Blended Scotch"/"Blended Japanese"처럼 분류명으로. 국가명·증류소명을 region에 넣지 말 것
+- producer: 증류소명, 블렌디드는 블렌더·브랜드명(Johnnie Walker, Ballantine's 등)
 - 모르는 필드는 null로 두세요.`
           : `와인 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
 {"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"이 와인을 한국어로 2문장 설명","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
