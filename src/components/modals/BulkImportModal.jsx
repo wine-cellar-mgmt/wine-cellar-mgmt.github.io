@@ -44,17 +44,18 @@ export function BulkImportModal({ onAddMany, onClose }) {
       try {
         const q = w.vintage ? `${w.name} ${w.vintage}` : w.name
         const enrichPrompt = whisky
-          ? `위스키 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
-{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"이 위스키를 한국어로 2문장 설명","abv":null,"ageYears":null,"vivinoPrice":null,"wineSearcherPrice":null}
+          ? `주류(위스키·진·럼·보드카·데킬라·꼬냑·리큐르·고량주·사케·포트 등) "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
+{"producer":"생산자(증류소·양조장)","region":"지역(예: Speyside)","country":"국가","description":"이 술을 한국어로 2문장 설명","abv":null,"ageYears":null,"bottleSize":null,"vivinoPrice":null,"wineSearcherPrice":null}
 
-가격 수집 방법 (700ml 1병 기준):
+가격 수집 방법 (해당 제품의 표준 1병 기준):
 - whiskybase.com / thewhiskyexchange.com 가격 조회
 - dailyshot.co.kr 등 한국 주류 판매가 KRW 조회
 - USD/GBP 가격은 현재 환율로 KRW 환산
 
 ${priceGuardText()}
 - vivinoPrice: 글로벌 USD 숫자만
-- abv: 도수 숫자 (예: 46), ageYears: 숙성연수 숫자 (NAS면 null)
+- abv: 도수 숫자 (예: 46), ageYears: 숙성연수 숫자 (없거나 NAS면 null)
+- bottleSize: 실제 판매 병 용량 ml 정수 (예: 700, 750, 500, 1000). 확실하지 않으면 null
 - 모르는 필드는 null로 두세요.`
           : `와인 "${q}"의 정보를 웹에서 검색하여 아래 JSON 형식으로만 반환하세요 (마크다운 없이, 설명 없이):
 {"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"이 와인을 한국어로 2문장 설명","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
@@ -82,6 +83,9 @@ ${priceGuardText()}
         const idx = result.findIndex(x => x._id === w._id)
         // AI가 imageUrl을 비워서 반환해도 사용자가 찍은 사진을 덮어쓰지 않도록 제외
         if (!info.imageUrl) delete info.imageUrl
+        // 병 용량은 100~5000ml 범위만 신뢰 — 그 밖이면 기본값 유지
+        const bs = parseInt(String(info.bottleSize))
+        if (!(bs >= 100 && bs <= 5000)) delete info.bottleSize
         if (idx !== -1) result[idx] = { ...result[idx], ...info, _enriched: true }
         setWineList([...result])
       } catch (err) {
@@ -108,19 +112,24 @@ ${priceGuardText()}
       setPhotos(p => p.map(x => x.id === ph.id ? { ...x, dataUrl, status: 'scanning' } : x))
       try {
         const visionPrompt = whisky
-          ? `당신은 위스키 라벨 전문가입니다. 이 진열장 사진에서 보이는 모든 위스키 병의 라벨을 분석해주세요.
+          ? `당신은 주류 라벨 전문가입니다. 이 진열장 사진에서 보이는 모든 병의 라벨을 분석해주세요.
+
+대상은 위스키에 한정되지 않습니다. 상온 보관하는 주류 전반이 대상입니다:
+위스키·버번, 브랜디·꼬냑, 데킬라·메스칼, 보드카, 진, 럼, 리큐르,
+고량주·백주·소주 등 증류주, 사케, 포트·셰리 같은 강화와인, 전통주 등 — 병에 보이는 것은 모두 기재하세요.
+"위스키가 아니다"라는 이유로 항목을 빼거나 빈 배열을 반환하지 마세요.
 
 분석 지침:
 - 병이 눕혀 있거나 라벨이 측면/부분만 보여도 최대한 읽어주세요
-- 같은 위스키가 여러 병 있으면 qty에 병 수를 기재하세요
-- 숙성연수(예: 12 Years)가 라벨에 보이면 ageYears에 숫자로 기재하세요 (NAS면 null)
+- 같은 술이 여러 병 있으면 qty에 병 수를 기재하세요
+- 숙성연수(예: 12 Years)가 라벨에 보이면 ageYears에 숫자로 기재하세요 (없거나 NAS면 null)
 - 도수(ABV %)가 보이면 abv에 숫자로 기재하세요
-- 위스키 이름은 라벨에 표기된 공식 명칭으로 (예: "Glenfiddich 15", "Hibiki Japanese Harmony")
+- 이름은 라벨에 표기된 공식 명칭으로 (예: "Glenfiddich 15", "Hibiki Japanese Harmony", "Tanqueray London Dry Gin", "Taylor's 10 Year Old Tawny Port")
 - 라벨을 전혀 읽을 수 없는 병만 "미확인"으로 처리하세요
-- 각 위스키마다 사진에서 그 병이 차지하는 영역을 box로 표시하세요. box는 병 전체(병목~바닥)가 들어가도록 하고, 사진 왼쪽 위를 (0,0), 오른쪽 아래를 (1,1)로 한 비율 좌표입니다. x,y는 영역의 좌상단, w,h는 너비·높이(모두 0~1). 같은 위스키가 여러 병이면 대표 한 병의 box. 위치를 알 수 없으면 box는 null.
+- 각 병마다 사진에서 그 병이 차지하는 영역을 box로 표시하세요. box는 병 전체(병목~바닥)가 들어가도록 하고, 사진 왼쪽 위를 (0,0), 오른쪽 아래를 (1,1)로 한 비율 좌표입니다. x,y는 영역의 좌상단, w,h는 너비·높이(모두 0~1). 같은 술이 여러 병이면 대표 한 병의 box. 위치를 알 수 없으면 box는 null.
 
 반드시 아래 JSON 배열 형식만 반환하세요 (마크다운, 설명 텍스트 절대 없이):
-[{"name":"위스키 전체 이름","ageYears":숫자또는null,"abv":숫자또는null,"qty":병수정수,"box":{"x":0.0,"y":0.0,"w":1.0,"h":1.0}}]`
+[{"name":"술 전체 이름","ageYears":숫자또는null,"abv":숫자또는null,"qty":병수정수,"box":{"x":0.0,"y":0.0,"w":1.0,"h":1.0}}]`
           : `당신은 와인 라벨 전문가입니다. 이 셀러 사진에서 보이는 모든 와인 병의 라벨을 분석해주세요.
 
 분석 지침:
@@ -245,7 +254,7 @@ ${priceGuardText()}
           <div>
             <div style={{ background: T.surface, border: `2px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: '2rem', marginBottom: 8 }}>📸</div>
-              <div style={{ fontSize: '0.875rem', color: T.text, marginBottom: 4 }}><strong style={{ color: T.cream }}>{cellarById(cellarId)?.name} · {slot}번 칸</strong> {whisky ? '위스키' : '와인'} 사진</div>
+              <div style={{ fontSize: '0.875rem', color: T.text, marginBottom: 4 }}><strong style={{ color: T.cream }}>{cellarById(cellarId)?.name} · {slot}번 칸</strong> {whisky ? '위스키·증류주' : '와인'} 사진</div>
               <div style={{ fontSize: '0.78rem', color: T.muted, marginBottom: 16 }}>여러 장 선택 가능 · 라벨이 잘 보일수록 정확합니다</div>
               <label style={{ display: 'inline-block', background: T.gold, color: T.bg, border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
                 📷 사진 선택 / 촬영
@@ -310,7 +319,7 @@ ${priceGuardText()}
                       }} />
                     </label>
                     <div style={{ flex: 1 }}>
-                      <input value={w.name} onChange={e => setField(w._id, 'name', e.target.value)} style={{ marginBottom: 6, fontWeight: 500, fontSize: '0.875rem' }} placeholder={whisky ? '위스키 이름' : '와인 이름'} />
+                      <input value={w.name} onChange={e => setField(w._id, 'name', e.target.value)} style={{ marginBottom: 6, fontWeight: 500, fontSize: '0.875rem' }} placeholder={whisky ? '위스키·증류주 이름' : '와인 이름'} />
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                         {whisky
                           ? <input value={w.ageYears || ''} onChange={e => setField(w._id, 'ageYears', e.target.value ? parseInt(e.target.value) : null)} type="number" placeholder="숙성연수" style={{ fontSize: '0.8rem' }} />
