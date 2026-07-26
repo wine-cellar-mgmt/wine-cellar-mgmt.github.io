@@ -44,7 +44,11 @@ export default function AddWineModal({ pre = {}, onAdd, onClose }) {
       const q = form.vintage ? `${form.name} ${form.vintage}` : form.name
       const prompt = whisky
         ? `위스키 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
-{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"한국어 2문장","imageUrl":"이미지URL또는빈문자열","abv":null,"ageYears":null,"vivinoPrice":null,"wineSearcherPrice":null}
+{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"한국어 2문장","imageUrl":"이미지URL또는빈문자열","abv":null,"ageYears":null,"bottleSize":null,"vivinoPrice":null,"wineSearcherPrice":null}
+
+bottleSize: 이 제품이 실제로 판매되는 병 용량을 ml 정수로 (예: 700, 750, 500, 300, 1000).
+- 로얄살루트 32년처럼 500ml로만 나오는 제품, 고량주·백주 소용량(300/500ml), 미국 시장 750ml 등 제품별 실제 규격을 확인해 기재
+- 여러 규격이 있으면 가장 일반적인 것, 확실하지 않으면 null
 
 가격 수집 방법 (700ml 1병 기준):
 - whiskybase.com / thewhiskyexchange.com 가격 조회
@@ -57,7 +61,9 @@ abv는 도수 숫자(예: 46), ageYears는 숙성연수 숫자(NAS면 null)
 숫자만, 모르면 null
 응답의 마지막은 반드시 완성된 JSON 객체 하나여야 한다.`
         : `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
-{"producer":"생산자","region":"지역","country":"국가","grape":"품종","description":"한국어 2문장","imageUrl":"이미지URL또는빈문자열","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
+{"producer":"생산자","region":"지역","country":"국가","grape":"품종","description":"한국어 2문장","imageUrl":"이미지URL또는빈문자열","bottleSize":null,"vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
+
+bottleSize: 병 용량 ml 정수(일반 와인 750, 매그넘 1500, 하프 375). 확실하지 않으면 null
 
 가격 수집 방법 (750ml 1병 기준):
 - wine-searcher.com 한국(Korea) KRW 가격 조회
@@ -79,6 +85,9 @@ vivino USD 원본 → vivinoPrice
       }
       if (!info) throw new Error(`JSON 추출 실패: ${text.slice(0, 100)}`)
       setAiInfo(info)
+      // AI가 찾은 실제 병 용량 반영 (100~5000ml 범위만 신뢰)
+      const bs = parseInt(String(info.bottleSize))
+      if (bs >= 100 && bs <= 5000) set('bottleSize', bs)
       if (info.imageUrl) { set('imageUrl', info.imageUrl); setImgSrc('ai'); setImgErr(false) }
       else setImgErr(true)
     } catch (e) {

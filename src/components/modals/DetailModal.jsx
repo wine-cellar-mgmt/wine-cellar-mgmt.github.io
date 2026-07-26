@@ -95,6 +95,8 @@ export function DetailModal({ wine, drinkLog = [], onClose, onDrink, onRemove, o
   const [imgZoom, setImgZoom] = useState(false) // 이미지 확대 보기 (라이트박스)
   const [form, setForm] = useState({ ...wine })
   const [aiLoad, setAiLoad] = useState(false)
+  const [imgSearching, setImgSearching] = useState(false)  // 라벨 이미지 AI 재검색
+  const [imgErr, setImgErr] = useState(false)
   // 위치 이동 전용 상태 (전체 수정 폼과 분리)
   const [moveCellar, setMoveCellar] = useState(wine.cellarId)
   const [moveSlot, setMoveSlot] = useState(wine.slot)
@@ -130,7 +132,11 @@ export function DetailModal({ wine, drinkLog = [], onClose, onDrink, onRemove, o
       const q = form.vintage ? `${form.name} ${form.vintage}` : form.name
       const prompt = whisky
         ? `위스키 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
-{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"한국어 2문장","abv":null,"ageYears":null,"vivinoPrice":null,"wineSearcherPrice":null}
+{"producer":"증류소","region":"지역(예: Speyside)","country":"국가","description":"한국어 2문장","abv":null,"ageYears":null,"bottleSize":null,"vivinoPrice":null,"wineSearcherPrice":null}
+
+bottleSize: 이 제품이 실제로 판매되는 병 용량을 ml 정수로 (예: 700, 750, 500, 300, 1000).
+- 로얄살루트 32년처럼 500ml로만 나오는 제품, 고량주·백주 소용량(300/500ml) 등 제품별 실제 규격 확인
+- 여러 규격이 있으면 가장 일반적인 것, 확실하지 않으면 null
 
 가격 수집 (700ml 기준):
 - whiskybase.com / thewhiskyexchange.com
@@ -142,7 +148,9 @@ ${priceGuardText(form.wineSearcherPrice)}
 abv는 도수 숫자, ageYears는 숙성연수 숫자(NAS면 null)
 숫자만, 모르면 null`
         : `와인 "${q}"의 정보를 웹에서 검색하여 JSON만 반환 (마크다운 없이):
-{"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"한국어 2문장","vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
+{"producer":"생산자명","region":"지역명","country":"국가명","grape":"품종","description":"한국어 2문장","bottleSize":null,"vivinoPrice":null,"vivinoRating":null,"wineSearcherPrice":null}
+
+bottleSize: 병 용량 ml 정수(일반 와인 750, 매그넘 1500, 하프 375). 확실하지 않으면 null
 
 가격 수집 (750ml 기준):
 - wine-searcher.com 한국 KRW
@@ -159,12 +167,47 @@ vivino USD 원본 → vivinoPrice
       const match = cleaned.match(/\{[\s\S]*\}/)
       if (match) {
         const info = JSON.parse(match[0])
+        // 병 용량은 100~5000ml 범위만 신뢰 — 그 밖이면 기존 값 유지
+        const bs = parseInt(String(info.bottleSize))
+        if (!(bs >= 100 && bs <= 5000)) delete info.bottleSize
         setForm(p => ({ ...p, ...info }))
       }
     } catch(e) {
       console.error('[EditAI]', e)
     }
     setAiLoad(false)
+  }
+
+  // 라벨 이미지만 다시 찾기 — 일괄 입력에서 크롭이 뒤바뀐 경우 등에 사용
+  async function searchImage() {
+    if (!form.name?.trim()) return
+    setImgSearching(true)
+    setImgErr(false)
+    try {
+      const q = form.vintage ? `${form.name} ${form.vintage}` : form.name
+      const prompt = `${whisky ? '위스키' : '와인'} "${q}"의 공식 제품(라벨/보틀) 이미지 URL을 웹에서 찾아 JSON만 반환 (마크다운 없이):
+{"imageUrl":"이미지URL또는빈문자열"}
+
+- 반드시 해당 제품 본인의 이미지여야 한다(다른 빈티지·다른 제품 금지)
+- .jpg / .jpeg / .png / .webp 로 끝나는 직접 접근 가능한 이미지 URL
+- 판매처·생산자 공식 사이트 이미지 우선, 못 찾으면 빈 문자열
+응답의 마지막은 반드시 완성된 JSON 객체 하나여야 한다.`
+      const data = await callProxy([{ role: 'user', content: prompt }],
+        2000, [{ type: 'web_search_20250305', name: 'web_search' }])
+      const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '{}'
+      const cleaned = text.replace(/```json|```/g, '').trim()
+      const candidates = cleaned.match(/\{[^{}]*\}/g) || []
+      let info = null
+      for (let k = candidates.length - 1; k >= 0; k--) {
+        try { info = JSON.parse(candidates[k]); break } catch { /* 다음 후보 */ }
+      }
+      if (info?.imageUrl) setF('imageUrl', info.imageUrl)
+      else setImgErr(true)
+    } catch (e) {
+      console.error('[EditImageAI]', e)
+      setImgErr(true)
+    }
+    setImgSearching(false)
   }
 
   function saveEdit() {
@@ -251,11 +294,19 @@ vivino USD 원본 → vivinoPrice
           </div>
         </div>
         <ImagePicker
-          imageUrl={form.imageUrl || ''} imgSrc="" imgSearching={false} imgErr={false}
+          imageUrl={form.imageUrl || ''} imgSrc="" imgSearching={imgSearching} imgErr={imgErr}
           onClear={() => setF('imageUrl', '')}
           onUpload={dataUrl => setF('imageUrl', dataUrl)}
-          onRetry={() => {}}
+          onRetry={searchImage}
         />
+        {/* 이미지가 이미 있어도 다시 찾을 수 있게 — 일괄 입력 크롭이 뒤바뀐 경우 대비 */}
+        {form.imageUrl && (
+          <button onClick={searchImage} disabled={imgSearching}
+            style={{ background: 'transparent', border: `1px solid ${T.border}`, color: imgSearching ? T.muted : T.gold, borderRadius: 8, padding: '6px 12px', fontSize: '0.76rem', cursor: imgSearching ? 'default' : 'pointer', marginBottom: 14 }}>
+            {imgSearching ? '🔍 이미지 검색 중...' : '🔍 AI로 라벨 이미지 다시 찾기'}
+          </button>
+        )}
+        {form.imageUrl && imgErr && <div style={{ fontSize: '0.76rem', color: '#e07070', marginBottom: 12 }}>✕ 이미지를 찾지 못했습니다 — 직접 촬영해 주세요</div>}
         <div style={{ marginBottom: 22 }}><label style={lbl}>메모</label><textarea value={form.notes || ''} onChange={e => setF('notes', e.target.value)} rows={2} /></div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <Btn variant="ghost" onClick={() => setEditing(false)}>취소</Btn>
