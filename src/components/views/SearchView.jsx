@@ -2,8 +2,15 @@ import { useState, useMemo } from 'react'
 import { cellarById, T, krw, bottleBadge, textMatchesQuery } from '../../config/cellars.js'
 
 // 동의어 사전(WINE_SYNONYMS)·매칭 로직은 cellars.js로 이동(음주기록 검색과 공용)
+// 종류 키워드로 검색하면 category로도 매칭 — '위스키/데킬라/꼬냑…'은 모두 whisky 카테고리, '와인'은 wine
+const CATEGORY_QUERY = {
+  '와인': 'wine', 'wine': 'wine',
+  '위스키': 'whisky', '위스끼': 'whisky', 'whisky': 'whisky', 'whiskey': 'whisky',
+}
 function wineMatchesQuery(wine, query) {
   if (!query.trim()) return false
+  const cat = CATEGORY_QUERY[query.trim().toLowerCase()]
+  if (cat && (wine.category || 'wine') === cat) return true
   const fields = [wine.name, wine.producer, wine.region, wine.country, wine.grape, wine.description, wine.notes, String(wine.vintage || '')]
   return fields.some(f => textMatchesQuery(f, query))
 }

@@ -354,6 +354,37 @@ export const WINE_SYNONYMS = [
   ['veuve clicquot', 'veuve clicquot ponsardin', '뵈브 클리코', '뵈브클리코', '뵈브'],
   // 돔 페리뇽
   ['dom perignon', 'dom pérignon', '돔 페리뇽', '돔페리뇽', '돔'],
+
+  // ── 위스키·증류주 한글 별칭 (종류 키워드는 이름에 영문 종류명이 있으면 매칭) ──
+  ['whisky', 'whiskey', '위스키', '위스끼'],
+  ['tequila', '데킬라', '테킬라', '떼낄라'],
+  ['mezcal', '메즈칼', '메스칼', '메즈깔'],
+  ['cognac', '꼬냑', '코냑'],
+  ['sake', 'nihonshu', '사케', '니혼슈'],
+  ['baijiu', 'kaoliang', '백주', '고량주', '바이주'],
+  // 브랜드
+  ['ballantine', "ballantine's", '발렌타인', '발렌타인스'],
+  ['glenfiddich', '글렌피딕'],
+  ['glenmorangie', '글렌모렌지'],
+  ['signet', '시그넷'],
+  ['balvenie', '발베니'],
+  ['dalmore', '달모어'],
+  ['kavalan', '카발란'],
+  ['ardbeg', '아드벡', '아드백'],
+  ['corryvreckan', '코리브레칸', '코리브라칸'],
+  ['hibiki', '히비키'],
+  ['hakushu', '하쿠슈'],
+  ['yamazaki', '야마자키', '야마자끼'],
+  ['royal salute', '로얄살루트', '로얄 살루트'],
+  ['johnnie walker', '조니워커', '조니 워커'],
+  ['blue label', '블루라벨', '블루 라벨'],
+  ['hennessy', '헤네시'],
+  ['camus', '까뮈', '카뮈'],
+  ['clase azul', '클라세 아술', '클라세아술', '클라세 아줄'],
+  ['1800 cristalino', '1800 tequila', '1800 크리스탈리노'],
+  ['kinmen', 'kaoliang', '금문고량주', '금문 고량주'],
+  ['gowoon dar', '고운 달', '고운달'],
+  ['yamada nishiki', '야마다 니시키', '야마다니시키'],
 ]
 
 // text 하나가 query와 매치되는지: 직접 포함 매칭 + 동의어 그룹 매칭
