@@ -77,13 +77,17 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
           <span style={{ fontSize: '0.75rem', color: T.muted, marginLeft: 12 }}>{c.slots}칸 · 칸당 최대 {c.maxPerSlot}병 · 총 {c.slots * c.maxPerSlot}병</span>
         </div>
         {(() => {
-          const totalB = wines.filter(w => w.cellarId === cellarId).reduce((s, w) => s + (w.qty || 1), 0)
+          const cellarWines = wines.filter(w => w.cellarId === cellarId)
+          const totalB = cellarWines.reduce((s, w) => s + (w.qty || 1), 0)
           const pct = Math.round(totalB / (c.slots * c.maxPerSlot) * 100) || 0
+          // 셀러 전체 시장가 합계 (병당 시장가 × 수량) — 입력된 것만 합산
+          const totalValue = cellarWines.reduce((s, w) => s + (Number(w.wineSearcherPrice) || 0) * (w.qty || 1), 0)
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 120 }}>
               <div style={{ flex: 1, height: 6, background: T.surface, borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{ height: '100%', background: `linear-gradient(90deg,${T.wine},${T.gold})`, width: `${pct}%`, borderRadius: 3 }} />
               </div>
+              {totalValue > 0 && <span title="이 셀러의 시장가 합계 (병당 시장가 × 수량)" style={{ fontSize: '0.8rem', color: T.gold, fontWeight: 600, flexShrink: 0 }}>💰 {krw(totalValue)}</span>}
               <span style={{ fontSize: '0.8rem', color: T.gold, fontWeight: 600, flexShrink: 0 }}>{totalB}/{c.slots * c.maxPerSlot}병 ({pct}%)</span>
             </div>
           )
@@ -134,6 +138,8 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
           const slotWines = winesIn(cellarId, slot)
           const slotAllSelected = slotWines.length > 0 && slotWines.every(w => selected.has(w.id))
           const slotSomeSelected = slotWines.some(w => selected.has(w.id))
+          // 칸 전체 시장가 합계 (병당 시장가 × 수량) — 입력된 것만 합산
+          const slotValue = slotWines.reduce((s, w) => s + (Number(w.wineSearcherPrice) || 0) * (w.qty || 1), 0)
 
           return (
             <div key={slot} style={{ background: T.card, border: `1px solid ${isOpen ? T.gold + '88' : T.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}>
@@ -153,6 +159,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                           {slotWines.filter(w => selected.has(w.id)).length}선택
                         </span>
                       )}
+                      {slotValue > 0 && <span title="이 칸의 시장가 합계 (병당 시장가 × 수량)" style={{ fontSize: '0.75rem', color: T.gold }}>💰 {krw(slotValue)}</span>}
                       <span style={{ fontSize: '0.8rem', fontWeight: 600, color: ratio >= 0.85 ? T.wineLight : ratio > 0 ? T.gold : T.muted }}>{b}/{c.maxPerSlot}병</span>
                       <span style={{ color: T.muted, fontSize: '0.85rem' }}>{isOpen ? '▲' : '▼'}</span>
                     </div>
@@ -214,7 +221,10 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                           <div style={{ fontSize: '0.75rem', color: T.muted, marginTop: 2 }}>
                             {w.vintage && <span style={{ color: T.gold, marginRight: 8 }}>{w.vintage}</span>}
                             <span style={{ marginRight: 8 }}>{w.qty || 1}병</span>
-                            <span>{krw(w.price)}</span>
+                            {w.price > 0 && <span style={{ marginRight: 8 }}>구매 {krw(w.price)}</span>}
+                            {w.wineSearcherPrice > 0
+                              ? <span style={{ color: T.gold, fontWeight: 600 }}>시장가 {krw(w.wineSearcherPrice)}</span>
+                              : !(w.price > 0) && <span>-</span>}
                           </div>
                         </div>
                         <button onClick={e => { e.stopPropagation(); onDrink(w) }}
