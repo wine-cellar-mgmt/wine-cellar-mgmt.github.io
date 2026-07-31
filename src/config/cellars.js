@@ -58,6 +58,23 @@ export function bottleBadge(ml) {
   return `🍾 ${n >= 1000 ? (n / 1000) + 'L' : n + 'ml'}`
 }
 
+// 병 사이즈 검색용 별칭 텍스트 — bottleSize는 숫자로만 저장되므로
+// '매그넘/magnum/1.5L/1500' 등으로 검색되도록 텍스트로 펼친다(표준 750/700ml은 제외).
+export function bottleSizeAliases(ml) {
+  const n = Number(ml)
+  if (!n || n === 750 || n === 700) return ''
+  const map = {
+    375: '하프 half 375ml 0.375L',
+    500: '500ml 0.5L',
+    1000: '1L 1000ml 리터',
+    1500: '매그넘 magnum 1.5L 1500ml',
+    3000: '더블 매그넘 double magnum 제로보암 jeroboam 3L 3000ml',
+    6000: '제로보암 jeroboam 6L 6000ml',
+    9000: '살마나자르 salmanazar 9L 9000ml',
+  }
+  return map[n] || `${n}ml${n >= 1000 && n % 1000 === 0 ? ' ' + (n / 1000) + 'L' : ''}`
+}
+
 // 가격대별 숙성 임계값(연차) — 데일리 와인은 일찍, 고급 와인은 오래 버틴다고 가정.
 // 시장가(원화) 우선, 없으면 비비노(달러) 참고, 둘 다 없으면 프리미엄 취급(보수적 — 오판으로 급하게 마시라 재촉하지 않도록).
 function priceTierThresholds(wine) {
