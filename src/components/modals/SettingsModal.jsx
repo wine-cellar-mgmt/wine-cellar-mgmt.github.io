@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { cellarById, T, bottleLabel, CELLARS, DEFAULT_CELLARS } from '../../config/cellars.js'
-import { signOut, saveProfile } from '../../lib/supabase.js'
+import { signOut, saveProfile, changePassword } from '../../lib/supabase.js'
 import { Btn } from '../ui.jsx'
 
 // ── CSV 내보내기 (엑셀 호환: UTF-8 BOM + CRLF) ───────────────────
@@ -91,6 +91,27 @@ export function SettingsModal({ wines = [], drinkLog = [], profile = null, onPro
     setSaving(false)
   }
 
+  // ── 비밀번호 변경 (로그인 상태에서 바로 변경 — 메일 발송 없음) ──
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwMsg, setPwMsg] = useState('')
+
+  async function submitPassword() {
+    if (pw1.length < 6) { setPwMsg('⚠ 6자 이상 입력하세요'); return }
+    if (pw1 !== pw2)    { setPwMsg('⚠ 두 입력이 일치하지 않습니다'); return }
+    setPwBusy(true); setPwMsg('')
+    try {
+      await changePassword(pw1)
+      setPw1(''); setPw2('')
+      setPwMsg('✓ 비밀번호가 변경되었습니다')
+    } catch (e) {
+      console.error('[Auth] 비밀번호 변경 실패:', e)
+      setPwMsg(`⚠ 변경 실패 — ${e.message || '알 수 없는 오류'}`)
+    }
+    setPwBusy(false)
+  }
+
   async function toggleWhisky() {
     const next = !showWhisky
     setShowWhisky(next)
@@ -174,6 +195,24 @@ export function SettingsModal({ wines = [], drinkLog = [], profile = null, onPro
           }}>
             <span style={{ position: 'absolute', top: 3, left: showWhisky ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: showWhisky ? T.gold : T.muted, transition: 'left 0.15s' }} />
           </button>
+        </div>
+
+        {/* 비밀번호 변경 — 로그인한 본인이 직접 바꾼다 */}
+        <div style={{ background: T.surface, borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ fontSize: '0.72rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 10 }}>🔑 비밀번호 변경</div>
+          <input type="password" value={pw1} onChange={e => { setPw1(e.target.value); setPwMsg('') }}
+            placeholder="새 비밀번호 (6자 이상)" autoComplete="new-password"
+            style={{ width: '100%', marginBottom: 8, fontSize: '0.82rem', padding: '8px 10px' }} />
+          <input type="password" value={pw2} onChange={e => { setPw2(e.target.value); setPwMsg('') }}
+            placeholder="새 비밀번호 확인" autoComplete="new-password"
+            onKeyDown={e => e.key === 'Enter' && submitPassword()}
+            style={{ width: '100%', marginBottom: 10, fontSize: '0.82rem', padding: '8px 10px' }} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Btn variant="gold" size="sm" onClick={submitPassword} disabled={pwBusy || !pw1 || !pw2}>
+              {pwBusy ? '변경 중…' : '비밀번호 변경'}
+            </Btn>
+            {pwMsg && <span style={{ fontSize: '0.72rem', color: pwMsg.startsWith('✓') ? '#4a8a5e' : T.wineLight }}>{pwMsg}</span>}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center' }}>

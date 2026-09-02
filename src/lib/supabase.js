@@ -15,6 +15,13 @@ export async function signOut() {
   await supabase.auth.signOut()
 }
 
+// 로그인한 사용자가 자기 비밀번호를 바꾼다 (메일 발송 없음).
+// 프로젝트 설정에서 '보안 비밀번호 변경'이 켜져 있으면 재인증을 요구할 수 있다.
+export async function changePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession()
   return data.session

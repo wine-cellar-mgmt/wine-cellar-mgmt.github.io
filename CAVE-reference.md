@@ -91,6 +91,7 @@ src/
         ├── BatchDrinkModal.jsx   ← 일괄 마심(한 자리에서 여러 병 → drink_sessions로 묶음)
         ├── ExternalDrinkModal.jsx← 밖에서 마신 기록 (재고와 무관, drink_log만, lazy)
         ├── SettingsModal.jsx     ← 로그아웃 + 📥 CSV 내보내기 + 🍾 내 셀러 관리 + 🥃 위스키 토글
+        │                            + 🔑 비밀번호 변경(supabase.auth.updateUser, 메일 발송 없음)
         └── BulkImportModal.jsx   ← 사진 일괄 입력 (lazy)
 ```
 
@@ -214,6 +215,9 @@ src/
     saveProfile의 UPDATE에 `.eq('id', ...)` 누락으로 설정 저장이 실패하던 버그 수정
     (PostgREST는 WHERE 없는 UPDATE를 21000 `UPDATE requires a WHERE clause`로 거부한다 —
     RLS가 있어도 필터를 반드시 명시할 것).
+  * 설정에 🔑 비밀번호 변경 추가 — 로그인 상태에서 supabase.auth.updateUser({password}).
+    메일 발송이 없어 Supabase 기본 SMTP 제한과 무관하다. 앱에는 여전히 회원가입·비밀번호
+    찾기(메일) 화면이 없다(초대제 유지).
 
 ## 아직 미적용 (다음 작업 후보)
 - 취향 프로필 (음주 기록 기반 선호 품종·지역·평점 분석)
