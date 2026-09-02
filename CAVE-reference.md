@@ -5,9 +5,9 @@ CAVE는 개인 와인 셀러 관리 PWA다. 이 문서는 작업 시 배경 맥�
 ## 기본 정보
 - 앱 이름: CAVE
 - 로컬 경로: `C:\Claude\wine-cellar-mgmt`
-- GitHub: https://github.com/youjinwoong/wine-cellar-mgmt
-- 배포 URL: https://youjinwoong.github.io/wine-cellar-mgmt/
-- 공개 갤러리: https://youjinwoong.github.io/wine-cellar-mgmt/?gallery=1
+- GitHub: https://github.com/wine-cellar-mgmt/wine-cellar-mgmt.github.io
+- 배포 URL: https://wine-cellar-mgmt.github.io/
+- 공개 갤러리: https://wine-cellar-mgmt.github.io/?gallery=1
 - Supabase Project ID: `nmjawxbbwlerugfyypft`
 - Supabase URL: https://nmjawxbbwlerugfyypft.supabase.co
 - 로그인 계정: you.jinwoong@gmail.com (uuid `d84997d5-542a-49e3-af49-c0eaf5cf7340`)

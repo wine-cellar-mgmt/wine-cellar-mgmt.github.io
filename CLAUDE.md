@@ -48,7 +48,8 @@
 - push하면 GitHub Actions가 자동 배포한다. 배포 후 화면이 안 바뀌어 보이면 Ctrl+Shift+R 강력 새로고침 안내.
 - 서비스워커(`public/sw.js`)는 네트워크 우선이라 배포 반영을 막지 않지만, 캐시 무효화가 필요하면
   sw.js의 CACHE 버전 문자열(`cave-v1`)을 올린다.
-- 원격: `origin` = https://github.com/youjinwoong/wine-cellar-mgmt.git
+- 원격: `origin` = https://github.com/wine-cellar-mgmt/wine-cellar-mgmt.github.io.git
+  (조직 사이트 저장소 — 배포 주소는 https://wine-cellar-mgmt.github.io/ , vite base는 `/`)
 
 ## 이 저장소 밖에 있는 것
 - 매달 6일 09:00 전체 시장가 자동 갱신(`cave-monthly-price-refresh`)은 Cowork 스케줄로 계속 돌아간다.
