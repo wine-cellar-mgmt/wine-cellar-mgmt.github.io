@@ -53,7 +53,7 @@ ${priceGuardText(prevPrice)}
 }
 
 // ── List View ────────────────────────────────────────────────────
-export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onRename, onMerge, showWhisky = true, allowBulkPrice = true }) {
+export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onDrinkMany, onRename, onMerge, showWhisky = true, allowBulkPrice = true }) {
   const mobile = useIsMobile()
   const [sort, setSort] = useState('name')
   const [filterCellar, setFilterCellar] = useState('')
@@ -115,6 +115,19 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
     setConfirmBulkDelete(false)
   }
 
+  // 일괄 마심 — 목록 뷰는 셀러 구분 없이 선택되므로 서로 다른 셀러의 병도 한 자리로 묶을 수 있다.
+  // 선택 유지가 목적이라 필터링된 sorted가 아닌 전체 wines에서 찾는다. 위스키는 시음 세션 로직이 달라 제외.
+  const selectedWineObjs = useMemo(() => wines.filter(w => selected.has(w.id)), [wines, selected])
+  const drinkableSelected = selectedWineObjs.filter(w => (w.category || 'wine') !== 'whisky')
+  const whiskyExcluded = selectedWineObjs.length - drinkableSelected.length
+  const selectedCellarCount = new Set(drinkableSelected.map(w => w.cellarId)).size
+
+  function handleDrinkSelected() {
+    if (!drinkableSelected.length || !onDrinkMany) return
+    onDrinkMany(drinkableSelected)
+    setSelected(new Set())
+  }
+
   async function handleBulkPriceUpdate(forceAll = false) {
     const targets = forceAll ? sorted : sorted.filter(w => !w.wineSearcherPrice)
     if (targets.length === 0) {
@@ -159,6 +172,15 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* 일괄 마심 — 셀러가 달라도 한 자리로 묶어서 기록 */}
+          {onDrinkMany && drinkableSelected.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+              <button onClick={handleDrinkSelected} style={{ background: T.wine + '33', border: `1px solid ${T.wine}`, color: T.wineLight, borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                🥂 선택한 {drinkableSelected.length}병 함께 마심{selectedCellarCount > 1 ? ` (${selectedCellarCount}개 셀러)` : ''}
+              </button>
+              {whiskyExcluded > 0 && <span style={{ fontSize: '0.68rem', color: T.muted }}>위스키 {whiskyExcluded}종은 제외(개별 시음 기록 이용)</span>}
+            </div>
+          )}
           {/* 선택 삭제 버튼 */}
           {selected.size > 0 && (
             confirmBulkDelete ? (

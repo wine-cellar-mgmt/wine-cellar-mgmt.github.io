@@ -524,7 +524,7 @@ export default function App() {
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
         {tab === 'producer' && <ProducerView {...shared} onUpdate={updateWine} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
-        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} showWhisky={showWhisky} allowBulkPrice={allowBulkPrice} />}
+        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onDrinkMany={openDrinkMany} onRename={renameWines} onMerge={mergeWines} showWhisky={showWhisky} allowBulkPrice={allowBulkPrice} />}
         {tab === 'stats'  && <StatisticsView wines={wines} drinkLog={drinkLog} />}
       </main>
 

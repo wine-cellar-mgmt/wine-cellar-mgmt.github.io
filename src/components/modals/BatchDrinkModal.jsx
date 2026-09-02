@@ -9,6 +9,8 @@ export function BatchDrinkModal({ wines, onConfirm, onClose }) {
   const today = new Date().toISOString().split('T')[0]
   const [shared, setShared] = useState({ date: today, companions: '', occasion: '' })
   const [perWine, setPerWine] = useState(() => Object.fromEntries(wines.map(w => [w.id, { rating: 0, review: '' }])))
+  // 서로 다른 셀러의 병을 함께 마신 경우 헤더에 셀러 목록을 보여준다
+  const cellarNames = [...new Set(wines.map(w => cellarById(w.cellarId)?.name).filter(Boolean))]
   const setS = (k, v) => setShared(p => ({ ...p, [k]: v }))
   const setP = (id, k, v) => setPerWine(p => ({ ...p, [id]: { ...p[id], [k]: v } }))
 
@@ -29,6 +31,9 @@ export function BatchDrinkModal({ wines, onConfirm, onClose }) {
           <div style={{ fontSize: '0.72rem', color: T.gold, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5, fontWeight: 600 }}>🥂 일괄 마심</div>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.2rem', fontWeight: 600, color: T.cream }}>{wines.length}병을 한 자리에서 마심</div>
           <div style={{ fontSize: '0.75rem', color: T.muted, marginTop: 2 }}>날짜·함께한 사람·자리는 한 번만 입력하면 전체 병에 적용됩니다</div>
+          {cellarNames.length > 1 && (
+            <div style={{ fontSize: '0.72rem', color: T.gold, marginTop: 4 }}>🗄 {cellarNames.join(' · ')} — 셀러 {cellarNames.length}곳의 와인이 함께 기록됩니다</div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
@@ -44,7 +49,10 @@ export function BatchDrinkModal({ wines, onConfirm, onClose }) {
                 {w.imageUrl ? <img src={w.imageUrl} alt="" style={{ width: 30, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} /> : <div style={{ width: 30, height: 42, background: T.card, borderRadius: 4, border: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>🍷</div>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 500, color: T.cream, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
-                  {w.vintage && <div style={{ fontSize: '0.75rem', color: T.gold }}>{w.vintage}</div>}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {w.vintage && <span style={{ fontSize: '0.75rem', color: T.gold }}>{w.vintage}</span>}
+                    <span style={{ fontSize: '0.7rem', color: T.muted }}>{cellarById(w.cellarId)?.name}{w.slot ? ` 셀러 ${w.slot}번 칸` : ''}</span>
+                  </div>
                 </div>
               </div>
               <div style={{ marginBottom: 8 }}><StarRating value={perWine[w.id]?.rating || 0} onChange={v => setP(w.id, 'rating', v)} /></div>
