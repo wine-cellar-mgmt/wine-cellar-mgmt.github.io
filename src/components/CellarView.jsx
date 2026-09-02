@@ -15,10 +15,15 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
   const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id))
   const someSelected = selected.size > 0
 
+  // 선택은 셀러 탭을 옮겨도 유지된다 — 서로 다른 셀러의 병을 한 자리로 묶어 기록하기 위함.
+  // 그래서 선택 목록은 현재 셀러(cellarWines)가 아니라 전체 wines에서 찾는다.
+  const selectedWineObjs = wines.filter(w => selected.has(w.id))
+  const selectedHere = cellarWines.filter(w => selected.has(w.id)).length
+  const selectedElsewhere = selectedWineObjs.length - selectedHere
   // 일괄 마심 — 위스키는 시음 세션 로직이 달라 제외(개별 기록 이용)
-  const selectedWineObjs = cellarWines.filter(w => selected.has(w.id))
   const drinkableSelected = selectedWineObjs.filter(w => w.category !== 'whisky')
   const whiskyExcluded = selectedWineObjs.length - drinkableSelected.length
+  const selectedCellarCount = new Set(drinkableSelected.map(w => w.cellarId)).size
 
   function toggleSelect(id, e) {
     e.stopPropagation()
@@ -29,12 +34,14 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
     })
   }
 
+  // 이 셀러 전체 선택/해제 — 다른 셀러에서 고른 병은 건드리지 않는다
   function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(allIds))
-    }
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (allSelected) allIds.forEach(id => next.delete(id))
+      else allIds.forEach(id => next.add(id))
+      return next
+    })
   }
 
   function clearSelection() {
@@ -60,7 +67,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
       {/* Cellar tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {CELLARS.map(cc => (
-          <button key={cc.id} onClick={() => { setCellarId(cc.id); setExpanded(null); clearSelection() }} style={{
+          <button key={cc.id} onClick={() => { setCellarId(cc.id); setExpanded(null); setConfirmDelete(false) }} style={{
             background: cc.id === cellarId ? T.gold : 'transparent',
             color: cc.id === cellarId ? T.bg : T.muted,
             border: cc.id === cellarId ? 'none' : `1px solid ${T.border}`,
@@ -101,7 +108,8 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
             <input type="checkbox" checked={allSelected} onChange={toggleAll}
               style={{ width: 16, height: 16, accentColor: T.gold, cursor: 'pointer' }} />
             <span style={{ fontSize: '0.85rem', color: T.cream }}>
-              <strong style={{ color: T.gold }}>{selected.size}개</strong> 선택됨
+              <strong style={{ color: T.gold }}>{selectedWineObjs.length}개</strong> 선택됨
+              {selectedElsewhere > 0 && <span style={{ fontSize: '0.75rem', color: T.muted, marginLeft: 6 }}>(이 셀러 {selectedHere} · 다른 셀러 {selectedElsewhere})</span>}
             </span>
             <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: T.muted, fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}>선택 해제</button>
           </div>
@@ -109,15 +117,15 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
             {drinkableSelected.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                 <button onClick={handleDrinkSelected} style={{ background: T.wine + '33', border: `1px solid ${T.wine}`, color: T.wineLight, borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
-                  🥂 선택한 {drinkableSelected.length}병 함께 마심
+                  🥂 선택한 {drinkableSelected.length}병 함께 마심{selectedCellarCount > 1 ? ` (${selectedCellarCount}개 셀러)` : ''}
                 </button>
                 {whiskyExcluded > 0 && <span style={{ fontSize: '0.68rem', color: T.muted }}>위스키 {whiskyExcluded}종은 제외(개별 시음 기록 이용)</span>}
-                <span style={{ fontSize: '0.68rem', color: T.muted }}>다른 셀러 와인과 함께 마셨다면 「전체 목록」 탭에서 선택하세요</span>
+                <span style={{ fontSize: '0.68rem', color: T.muted }}>셀러 탭을 옮겨도 선택은 그대로 — 여러 셀러 병을 함께 고를 수 있습니다</span>
               </div>
             )}
             {confirmDelete ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#c0392b22', border: '1px solid #c0392b', borderRadius: 8, padding: '4px 10px' }}>
-                <span style={{ fontSize: '0.78rem', color: '#e07070' }}>{selected.size}개 삭제?</span>
+                <span style={{ fontSize: '0.78rem', color: '#e07070' }}>{selectedWineObjs.length}개 삭제?{selectedElsewhere > 0 ? ' (다른 셀러 포함)' : ''}</span>
                 <button onClick={handleDeleteSelected} style={{ background: '#c0392b', color: 'white', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}>확인</button>
                 <button onClick={() => setConfirmDelete(false)} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: '3px 8px', fontSize: '0.78rem', cursor: 'pointer' }}>취소</button>
               </div>
