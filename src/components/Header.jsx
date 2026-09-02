@@ -14,6 +14,8 @@ const TABS = [
 
 export default function Header({ tab, setTab, onAdd, onBulk, onSettings, syncStatus }) {
   const mobile = useIsMobile()
+  // 사용법 안내(public/guide.html) — 배포 base 경로를 붙여 새 탭으로 연다
+  const guideUrl = `${import.meta.env.BASE_URL}guide.html`
   const syncDot = { saving:'💾', loading:'☁', synced:'✓', local:'·' }[syncStatus]||'·'
   const syncCol = { saving:T.gold, loading:T.gold, synced:'#4a8a5e', local:T.border }[syncStatus]||T.border
 
@@ -24,6 +26,7 @@ export default function Header({ tab, setTab, onAdd, onBulk, onSettings, syncSta
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <span style={{ fontSize:'0.7rem', color:syncCol }}>{syncDot}</span>
           <button onClick={onBulk} style={{ background:T.gold+'22', border:`1px solid ${T.gold}44`, color:T.gold, cursor:'pointer', borderRadius:7, padding:'5px 9px', fontSize:'0.82rem' }}>📷</button>
+          <a href={guideUrl} target="_blank" rel="noopener noreferrer" title="사용법 안내" style={{ color:T.muted, textDecoration:'none', fontSize:'1rem', padding:'4px' }}>❓</a>
           <button onClick={onSettings} style={{ background:'none', border:'none', color:T.muted, cursor:'pointer', fontSize:'1rem', padding:'4px' }}>⚙️</button>
         </div>
       </header>
@@ -51,6 +54,7 @@ export default function Header({ tab, setTab, onAdd, onBulk, onSettings, syncSta
       <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
         <span style={{ fontSize:'0.85rem', color:syncCol }}>{syncDot}</span>
         <button onClick={onBulk} style={{ background:T.gold+'22', border:`1px solid ${T.gold}44`, color:T.gold, cursor:'pointer', borderRadius:7, padding:'5px 10px', fontSize:'0.8rem' }}>📷 일괄 입력</button>
+        <a href={guideUrl} target="_blank" rel="noopener noreferrer" title="사용법 안내" style={{ background:'transparent', border:`1px solid ${T.border}`, color:T.muted, textDecoration:'none', borderRadius:7, padding:'5px 10px', fontSize:'0.8rem', whiteSpace:'nowrap' }}>❓ 사용법</a>
         <button onClick={onSettings} style={{ background:'transparent', border:'none', color:T.muted, cursor:'pointer', fontSize:'1rem', padding:'4px 6px' }}>⚙️</button>
         <Btn variant="wine" onClick={onAdd} size="sm">+ 추가</Btn>
       </div>

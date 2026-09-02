@@ -215,6 +215,16 @@ export function SettingsModal({ wines = [], drinkLog = [], profile = null, onPro
           </div>
         </div>
 
+        {/* 사용법 안내 — public/guide.html, 배포 base 경로를 붙여 새 탭으로 */}
+        <a href={`${import.meta.env.BASE_URL}guide.html`} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: T.surface, borderRadius: 8, padding: '12px 14px', marginBottom: 16, textDecoration: 'none' }}>
+          <div>
+            <div style={{ fontSize: '0.85rem', color: T.cream, fontWeight: 500 }}>📖 사용법 안내</div>
+            <div style={{ fontSize: '0.72rem', color: T.muted, marginTop: 2 }}>등록·마심·검색 등 앱 사용법을 새 탭에서 봅니다</div>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: T.gold, flexShrink: 0 }}>열기 ↗</span>
+        </a>
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
           <Btn variant="ghost" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? '로그아웃 중…' : '🚪 로그아웃'}</Btn>
           <Btn variant="gold" onClick={onClose}>닫기</Btn>
