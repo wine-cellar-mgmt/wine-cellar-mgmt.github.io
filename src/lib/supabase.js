@@ -83,11 +83,15 @@ export async function loadProfile() {
   return data
 }
 
-// 최초 로그인 계정 — 기본 프로필 생성 (셀러는 비워 두고 설정에서 등록)
+// 최초 로그인 계정 — 기본 프로필 생성.
+// 셀러는 중립적인 1칸짜리로 시작한다(다른 사람의 셀러 이름이 보이지 않도록).
+// 이름·칸 수는 설정 > 내 셀러 관리에서 바꾼다. 위스키 기능은 기본 꺼짐.
+export const STARTER_CELLARS = [{ id: 'cellar_1', name: '내 셀러', slots: 6, maxPerSlot: 20 }]
+
 export async function createDefaultProfile() {
   const { data, error } = await supabase
     .from('profiles')
-    .insert({ show_whisky: false, cellars: [] })
+    .insert({ show_whisky: false, cellars: STARTER_CELLARS })
     .select()
     .single()
   if (error) throw error
