@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0c0910" />
+<title>🍷 CAVE 사용법</title>
+<link rel="icon" type="image/svg+xml" href="wine.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0c0910; --surface:#15101c; --card:#1c1526;
+    --border:#2c1e3c; --border-bright:#4a3060;
+    --gold:#c9a84c; --gold-dim:#8a6c2c;
+    --wine:#7c1e2e; --wine-light:#a02840;
+    --cream:#f0e6d3; --text:#ccc0d8; --muted:#6a5878; --muted-mid:#9080a0;
+    --green:#4a8a5e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:Outfit,-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',sans-serif;
+    font-size:15px; line-height:1.75; -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 20px 80px}
+
+  /* 헤더 */
+  header{text-align:center; padding:52px 0 34px; border-bottom:1px solid var(--border); margin-bottom:8px}
+  .mark{font-family:'Cormorant Garamond',serif; font-size:2.7rem; color:var(--gold); letter-spacing:.16em; line-height:1}
+  .sub{color:var(--muted-mid); font-size:.88rem; margin-top:10px}
+  .open{
+    display:inline-block; margin-top:22px; padding:11px 26px; border-radius:9px;
+    background:linear-gradient(135deg,var(--wine),var(--wine-light));
+    color:var(--cream); text-decoration:none; font-weight:600; font-size:.92rem;
+    box-shadow:0 4px 16px rgba(124,30,46,.45);
+  }
+
+  /* 목차 */
+  nav{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin:26px 0}
+  nav b{display:block; color:var(--gold); font-size:.7rem; text-transform:uppercase; letter-spacing:.09em; margin-bottom:10px}
+  nav ol{margin:0; padding-left:20px; columns:2; column-gap:22px}
+  nav li{margin:3px 0; break-inside:avoid}
+  nav a{color:var(--text); text-decoration:none; font-size:.85rem}
+  nav a:hover{color:var(--gold)}
+  section a{color:var(--gold); text-decoration:none; border-bottom:1px solid rgba(201,168,76,.4)}
+  @media(max-width:520px){nav ol{columns:1}}
+
+  /* 섹션 */
+  section{margin-top:44px; scroll-margin-top:16px}
+  h2{
+    font-family:'Cormorant Garamond',serif; font-size:1.62rem; color:var(--cream);
+    margin:0 0 6px; font-weight:600; letter-spacing:.01em;
+  }
+  .lead{color:var(--muted-mid); font-size:.86rem; margin:0 0 18px}
+  h3{font-size:.95rem; color:var(--cream); margin:24px 0 8px; font-weight:600}
+  p{margin:10px 0}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin:14px 0}
+  .card.gold{border-color:rgba(201,168,76,.4); background:rgba(201,168,76,.07)}
+  .card.wine{border-color:rgba(160,40,64,.45); background:rgba(124,30,46,.12)}
+  .card h4{margin:0 0 8px; font-size:.92rem; color:var(--gold); font-weight:600}
+  .card p:last-child, .card ul:last-child{margin-bottom:0}
+  .card p:first-child{margin-top:0}
+
+  /* 단계 */
+  ol.steps{list-style:none; counter-reset:s; margin:16px 0; padding:0}
+  ol.steps>li{
+    counter-increment:s; position:relative; padding:0 0 18px 44px; margin:0;
+    border-left:1px solid var(--border); margin-left:13px;
+  }
+  ol.steps>li:last-child{border-left-color:transparent; padding-bottom:0}
+  ol.steps>li::before{
+    content:counter(s); position:absolute; left:-13px; top:-2px;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--gold-dim); color:var(--gold);
+    font-size:.76rem; font-weight:600; display:flex; align-items:center; justify-content:center;
+  }
+  ol.steps>li b{color:var(--cream); font-weight:600; display:block; margin-bottom:2px}
+
+  ul{margin:10px 0; padding-left:20px}
+  li{margin:5px 0}
+
+  /* 탭 목록 */
+  .tabs{display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:9px; margin:16px 0}
+  .tab{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 13px}
+  .tab .n{color:var(--cream); font-weight:600; font-size:.88rem}
+  .tab .d{color:var(--muted-mid); font-size:.76rem; line-height:1.55; margin-top:3px}
+
+  /* 인라인 요소 */
+  .btn{
+    display:inline-block; background:rgba(201,168,76,.14); color:var(--gold);
+    border:1px solid rgba(201,168,76,.34); border-radius:6px;
+    padding:1px 8px; font-size:.83rem; font-weight:500; white-space:nowrap;
+  }
+  .path{color:var(--gold); font-weight:500; white-space:nowrap}
+  em.note{color:var(--muted); font-style:normal; font-size:.82rem}
+  strong{color:var(--cream); font-weight:600}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:.86rem}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:top}
+  th{color:var(--gold); font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600}
+  td:first-child{color:var(--cream); white-space:nowrap}
+
+  footer{margin-top:56px; padding-top:22px; border-top:1px solid var(--border); text-align:center; color:var(--muted); font-size:.79rem}
+  footer a{color:var(--gold-dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="mark">CAVE</div>
+  <div class="sub">와인 셀러 관리 &middot; 사용법 안내</div>
+  <a class="open" href="./">🍷 앱 열기</a>
+</header>
+
+<nav>
+  <b>목차</b>
+  <ol>
+    <li><a href="#start">처음 시작하기</a></li>
+    <li><a href="#screens">화면 둘러보기</a></li>
+    <li><a href="#add">와인 등록하기</a></li>
+    <li><a href="#drink">마신 기록 남기기</a></li>
+    <li><a href="#manage">옮기고 고치기</a></li>
+    <li><a href="#find">찾아보기</a></li>
+    <li><a href="#insight">음용 적기와 통계</a></li>
+    <li><a href="#settings">설정</a></li>
+    <li><a href="#whisky">위스키·증류주</a></li>
+    <li><a href="#tips">알아두면 좋은 것</a></li>
+  </ol>
+</nav>
+
+<section id="start">
+  <h2>처음 시작하기</h2>
+  <p class="lead">설치할 것은 없습니다. 링크를 열고 로그인하면 바로 시작됩니다.</p>
+
+  <ol class="steps">
+    <li>
+      <b>로그인</b>
+      전달받은 이메일과 임시 비밀번호를 입력합니다.
+    </li>
+    <li>
+      <b>비밀번호 바꾸기</b>
+      오른쪽 위 <span class="btn">⚙️</span> → <span class="path">🔑 비밀번호 변경</span>에서
+      본인만 아는 비밀번호로 바꾸세요. 임시 비밀번호는 계속 쓰지 않는 편이 좋습니다.
+    </li>
+    <li>
+      <b>내 셀러 등록</b>
+      같은 설정 화면의 <span class="path">🍾 내 셀러 관리</span>에서 실제 보관 장소에 맞게 고칩니다.
+      처음에는 <strong>내 셀러</strong> 한 개(6칸)만 있습니다. 이름을 바꾸고, 칸 수와 칸당 병 수를 조정한 뒤
+      <span class="btn">셀러 저장</span>을 누르세요. 셀러가 여러 개면 <span class="btn">+ 셀러 추가</span>로 늘립니다.
+    </li>
+    <li>
+      <b>첫 와인 넣기</b>
+      아래 <a href="#add">와인 등록하기</a>를 따라 한 병만 넣어보세요. 감이 금방 옵니다.
+    </li>
+  </ol>
+
+  <div class="card gold">
+    <h4>📱 휴대폰 홈 화면에 추가하기</h4>
+    <p>앱처럼 쓰려면 브라우저 공유 메뉴에서 <strong>홈 화면에 추가</strong>를 누르세요.
+    아이폰은 사파리 <strong>공유 → 홈 화면에 추가</strong>, 안드로이드는 크롬 <strong>⋮ → 홈 화면에 추가</strong>입니다.
+    주소창 없이 전체 화면으로 열립니다.</p>
+  </div>
+</section>
+
+<section id="screens">
+  <h2>화면 둘러보기</h2>
+  <p class="lead">아래쪽(휴대폰) 또는 위쪽(PC)에 탭이 있습니다. 자주 쓰는 건 셀러 뷰와 검색입니다.</p>
+
+  <div class="tabs">
+    <div class="tab"><div class="n">🏠 대시보드</div><div class="d">보유 병 수, 구매가·시장가 합계, 빨리 마셔야 할 와인 요약</div></div>
+    <div class="tab"><div class="n">🍾 셀러 뷰</div><div class="d">칸별로 뭐가 들어 있는지 보는 기본 화면. 등록·마심·이동이 여기서 시작됩니다</div></div>
+    <div class="tab"><div class="n">⏰ 음용 적기</div><div class="d">지금 마시기 좋은 와인, 늦기 전에 비워야 할 와인</div></div>
+    <div class="tab"><div class="n">📖 음주 기록</div><div class="d">마신 와인의 기록과 사진. 밖에서 마신 것도 여기에 남깁니다</div></div>
+    <div class="tab"><div class="n">📊 통계</div><div class="d">타입·국가별 분포, 컬렉션 가치, 수익률</div></div>
+    <div class="tab"><div class="n">🏛️ 생산자</div><div class="d">국가 → 지역 → 생산자 순으로 펼쳐 보기</div></div>
+    <div class="tab"><div class="n">🔍 검색</div><div class="d">이름·품종·지역·메모까지 한 번에 검색</div></div>
+    <div class="tab"><div class="n">📋 전체 목록</div><div class="d">표로 한눈에. 정렬·필터·여러 개 선택 삭제</div></div>
+  </div>
+</section>
+
+<section id="add">
+  <h2>와인 등록하기</h2>
+  <p class="lead">한 병씩 넣거나, 칸을 통째로 찍어서 한 번에 넣을 수 있습니다.</p>
+
+  <h3>한 병씩 — <span class="btn">+ 추가</span></h3>
+  <p>오른쪽 위 <span class="btn">+ 추가</span>(휴대폰은 오른쪽 아래 <span class="btn">＋</span> 동그란 버튼)를 누릅니다.</p>
+  <ol class="steps">
+    <li>
+      <b>이름을 입력하고 🔍를 누릅니다</b>
+      AI가 웹에서 찾아 <strong>생산자·지역·국가·품종·시장가·음용 적기</strong>를 자동으로 채워줍니다.
+      라벨 사진도 같이 찾아옵니다. 이름만 정확히 넣으면 나머지는 대부분 알아서 채워집니다.
+    </li>
+    <li>
+      <b>빈티지와 수량</b>
+      같은 와인을 여러 병 샀으면 수량만 올리면 됩니다. 병마다 따로 등록할 필요 없습니다.
+    </li>
+    <li>
+      <b>구매일·구매가격</b>
+      나중에 통계에서 값어치 변화를 보려면 구매가를 넣어두는 게 좋습니다. 몰라도 그냥 비워두면 됩니다.
+    </li>
+    <li>
+      <b>셀러와 칸 번호</b>
+      실제로 넣어둔 자리를 고릅니다. 이게 정확해야 나중에 병을 찾을 수 있습니다.
+    </li>
+    <li>
+      <b>추가</b>
+      끝입니다. 매그넘 같은 큰 병이면 <strong>병 용량</strong>도 바꿔주세요.
+    </li>
+  </ol>
+
+  <h3>여러 병 한꺼번에 — <span class="btn">📷 일괄 입력</span></h3>
+  <p>칸 하나를 통째로 정리할 때 훨씬 빠릅니다.</p>
+  <ol class="steps">
+    <li><b>셀러와 칸 번호를 고릅니다</b> 한 번에 한 칸씩 진행합니다.</li>
+    <li><b>라벨이 보이게 사진을 찍습니다</b> 여러 병이 한 장에 같이 나와도 됩니다. 여러 장을 올려도 됩니다.</li>
+    <li><b>AI가 라벨을 읽어 목록을 만듭니다</b> 이름·빈티지를 알아서 인식합니다.</li>
+    <li>
+      <b>검토하고 고칩니다</b>
+      잘못 읽은 이름은 직접 수정하세요. 여기서 가격 검색을 돌리거나 사진을 교체할 수도 있습니다.
+    </li>
+    <li><b>전체 추가</b> 목록에 있는 와인이 한 번에 등록됩니다.</li>
+  </ol>
+
+  <div class="card">
+    <h4>💡 사진이 잘 안 읽힐 때</h4>
+    <p>라벨에 빛이 반사되거나 비스듬히 찍히면 인식률이 떨어집니다. 정면에서, 밝은 곳에서,
+    라벨 글씨가 또렷하게 나오도록 찍으면 훨씬 잘 읽습니다. 그래도 틀리면 검토 화면에서 고치면 되니
+    완벽하게 찍으려고 애쓸 필요는 없습니다.</p>
+  </div>
+</section>
+
+<section id="drink">
+  <h2>마신 기록 남기기</h2>
+  <p class="lead">기록을 남기면 셀러에서 병이 자동으로 빠집니다. 나중에 통계와 취향 파악에 쓰입니다.</p>
+
+  <h3>한 병 마셨을 때</h3>
+  <p>셀러 뷰나 검색에서 와인을 찾아 <span class="btn">🍷 마심</span>을 누릅니다.
+  <strong>마신 날짜 · 자리/특별한 날 · 함께한 사람 · 평점 · 한마디</strong>를 남길 수 있습니다.
+  사진도 넣을 수 있고, 전부 선택 사항이라 날짜만 확인하고 저장해도 됩니다.</p>
+
+  <h3>여러 병을 한 자리에서 마셨을 때</h3>
+  <p>셀러 뷰에서 병 왼쪽의 <strong>체크박스</strong>로 여러 개를 고르면 위에 툴바가 나타납니다.
+  <span class="btn">🥂 선택한 N병 함께 마심</span>을 누르면 날짜·함께한 사람·자리는 한 번만 입력하고,
+  평점과 한마디는 병마다 따로 남길 수 있습니다. 한 모임에서 여러 병을 딴 날 편합니다.</p>
+
+  <h3>밖에서 마셨을 때</h3>
+  <p>내 셀러에 없는 와인도 기록할 수 있습니다.
+  <span class="path">📖 음주 기록</span> 탭의 <span class="btn">📷 밖에서 마신 와인 기록</span>을 누르세요.
+  라벨 사진을 올리면 AI가 이름을 읽어줍니다. 식당이나 남의 집에서 마신 와인이 재고에 영향을 주지 않고 기록만 남습니다.</p>
+
+  <div class="card wine">
+    <h4>⚠️ 기록을 지우면</h4>
+    <p>음주 기록 삭제는 <strong>기록만</strong> 지웁니다. 이미 빠진 병이 셀러로 돌아오지는 않습니다.
+    실수로 마심 처리했다면 그 와인을 다시 등록해주세요.</p>
+  </div>
+</section>
+
+<section id="manage">
+  <h2>옮기고 고치기</h2>
+  <p class="lead">와인을 누르면 상세 화면이 열립니다. 여기서 대부분의 관리가 이뤄집니다.</p>
+
+  <table>
+    <tr><th>하고 싶은 것</th><th>방법</th></tr>
+    <tr><td>정보 고치기</td><td><span class="btn">✏️ 수정</span> — 이름, 빈티지, 가격, 메모 등</td></tr>
+    <tr><td>자리 옮기기</td><td><span class="btn">🚚 위치 이동</span> — 옮길 셀러·칸과 <strong>병 수</strong>를 고릅니다</td></tr>
+    <tr><td>병 지우기</td><td><span class="btn">삭제</span> — 마시지 않고 없앨 때(선물 등)</td></tr>
+    <tr><td>여러 개 한 번에 지우기</td><td>전체 목록이나 셀러 뷰에서 체크 후 <span class="btn">🗑 선택 삭제</span></td></tr>
+  </table>
+
+  <div class="card">
+    <h4>💡 3병 중 1병만 옮기기</h4>
+    <p>위치 이동에서 <strong>이동할 병 수</strong>를 1로 하면 1병만 옮겨가고 원래 자리에 2병이 남습니다.
+    옮긴 자리에 같은 와인이 이미 있으면 자동으로 합쳐집니다.</p>
+  </div>
+</section>
+
+<section id="find">
+  <h2>찾아보기</h2>
+  <p class="lead">검색은 이름만이 아니라 여러 정보를 한꺼번에 훑습니다.</p>
+
+  <p><span class="path">🔍 검색</span>에 입력하면 <strong>이름·생산자·지역·국가·품종·빈티지·메모</strong>에서 찾습니다.
+  한글로 쳐도 됩니다 — <strong>까베르네</strong>, <strong>부르고뉴</strong>, <strong>샴페인</strong>처럼
+  익숙한 한글 표기로 검색해도 영문 이름의 와인이 나옵니다.</p>
+
+  <ul>
+    <li><strong>2018</strong> — 해당 빈티지</li>
+    <li><strong>매그넘</strong> — 큰 병만</li>
+    <li><strong>선물</strong> — 메모에 그렇게 적어둔 와인</li>
+  </ul>
+
+  <p>목록을 표로 훑어보려면 <span class="path">📋 전체 목록</span>이 낫습니다.
+  이름순·빈티지순·구매가순·시장가순으로 정렬하고 셀러별로 걸러볼 수 있습니다.</p>
+</section>
+
+<section id="insight">
+  <h2>음용 적기와 통계</h2>
+
+  <h3>⏰ 음용 적기</h3>
+  <p>빈티지와 와인 종류를 바탕으로 <strong>지금 마시기 좋은지</strong>를 판단해 보여줍니다.
+  <strong>빨리 마셔야 → 지금 절정 → 마시기 좋음 → 곧 절정 → 숙성 중</strong> 순으로 정렬됩니다.
+  맨 위에 있는 와인부터 비우면 놓치는 병이 줄어듭니다.</p>
+  <p>정보가 부족해 판단이 안 되는 와인은 <span class="btn">🔮 음용시기 추정</span>으로 AI에게 물어볼 수 있습니다.</p>
+
+  <h3>📊 통계</h3>
+  <p>타입·국가·지역별 분포와 함께, 구매가와 현재 시장가를 비교한 <strong>컬렉션 가치</strong>를 보여줍니다.
+  구매가와 시장가가 <strong>둘 다 입력된 와인만</strong> 비교에 들어갑니다. 그래서 등록할 때 구매가를 넣어두면
+  나중에 볼거리가 많아집니다.</p>
+</section>
+
+<section id="settings">
+  <h2>설정</h2>
+  <p class="lead">오른쪽 위 <span class="btn">⚙️</span>에서 엽니다.</p>
+
+  <table>
+    <tr><th>항목</th><th>설명</th></tr>
+    <tr><td>🍾 내 셀러 관리</td><td>셀러 이름·칸 수·칸당 병 수를 고치고 셀러를 추가·삭제합니다</td></tr>
+    <tr><td>🔑 비밀번호 변경</td><td>새 비밀번호를 두 번 입력하면 바로 바뀝니다</td></tr>
+    <tr><td>📥 내보내기</td><td>와인 목록과 음주 기록을 엑셀(CSV) 파일로 내려받습니다</td></tr>
+    <tr><td>🥃 위스키 기능</td><td>켜면 위스키·증류주를 관리할 수 있습니다 (<a href="#whisky">아래 참고</a>)</td></tr>
+    <tr><td>🚪 로그아웃</td><td>공용 기기에서 썼다면 꼭 눌러주세요</td></tr>
+  </table>
+
+  <div class="card wine">
+    <h4>⚠️ 와인이 든 셀러는 지울 수 없습니다</h4>
+    <p>안에 든 와인이 갈 곳을 잃기 때문입니다. 셀러를 없애거나 칸 수를 줄이려면
+    그 자리의 와인을 먼저 다른 곳으로 옮기세요.</p>
+  </div>
+</section>
+
+<section id="whisky">
+  <h2>위스키·증류주</h2>
+  <p class="lead">기본은 꺼져 있습니다. 위스키나 다른 술도 함께 관리하고 싶을 때만 켜세요.</p>
+
+  <p><span class="path">⚙️ 설정 → 🥃 위스키 기능</span> 토글을 켜면 됩니다. 켜는 순간
+  와인 추가와 일괄 입력 화면에 <strong>🍷 와인 / 🥃 위스키</strong> 선택이 생깁니다.
+  위스키뿐 아니라 진·럼·데킬라·포트 같은 술도 여기로 관리합니다.</p>
+
+  <h3>와인과 다른 점</h3>
+  <table>
+    <tr><th></th><th>차이</th></tr>
+    <tr><td>빈티지 대신</td><td><strong>숙성연수</strong>와 <strong>도수</strong>를 입력합니다 (NAS면 숙성연수는 비워두세요)</td></tr>
+    <tr><td>기본 용량</td><td>700ml (와인은 750ml)</td></tr>
+    <tr><td>음용 적기</td><td>해당 없음 — 위스키는 이 탭에 나오지 않습니다</td></tr>
+  </table>
+
+  <h3>가장 큰 차이 — 한 병을 여러 번에 걸쳐 마십니다</h3>
+  <p>와인은 한 번 따면 그 병이 끝나지만 위스키는 아닙니다. 그래서 기록 방식이 다릅니다.</p>
+  <p>위스키에서는 <span class="btn">🥃 시음</span>을 누르면 <strong>병이 줄어들지 않습니다.</strong>
+  대신 <strong>마신 후 잔량</strong> 슬라이더로 남은 양을 %로 기록합니다.
+  첫 기록을 남기면 개봉일이 자동으로 잡히고, 그 뒤로는 마실 때마다 잔량만 갱신하면서
+  <strong>시음 기록이 쌓입니다</strong>. 한 병을 두고 몇 달에 걸쳐 마신 흐름이 그대로 남습니다.</p>
+  <p>병을 다 비웠다면 기록할 때 <strong>빈 병</strong>에 체크하세요.
+  그때 비로소 병 수가 하나 줄어듭니다. 같은 위스키가 여러 병 있으면 남은 병은 미개봉 상태로 초기화됩니다.</p>
+
+  <div class="card gold">
+    <h4>🥃 개봉 배지</h4>
+    <p>목록과 셀러 화면에서 개봉한 위스키에는 <strong>🥃 개봉 55%</strong>처럼 남은 양이 표시됩니다.
+    어떤 병이 열려 있고 얼마나 남았는지 한눈에 보입니다.</p>
+  </div>
+
+  <p><em class="note">위스키를 안 쓰기로 했다면 토글을 다시 끄면 됩니다. 이미 등록한 위스키 기록은 지워지지 않고
+  그대로 보관되며, 다시 켜면 돌아옵니다.</em></p>
+</section>
+
+<section id="tips">
+  <h2>알아두면 좋은 것</h2>
+
+  <div class="card">
+    <h4>🔒 내 와인은 나만 봅니다</h4>
+    <p>계정마다 데이터가 완전히 분리되어 있습니다. 같은 앱을 쓰는 다른 사람의 와인은 서로 보이지 않습니다.</p>
+  </div>
+
+  <div class="card">
+    <h4>💾 저장 버튼이 따로 없습니다</h4>
+    <p>추가·수정·마심은 누르는 즉시 서버에 저장됩니다. 다른 기기에서 로그인해도 그대로 이어집니다.
+    휴대폰으로 등록하고 PC에서 정리하는 식으로 써도 됩니다.</p>
+  </div>
+
+  <div class="card">
+    <h4>🔄 화면이 이상하면 새로고침</h4>
+    <p>앱이 업데이트됐는데 화면이 그대로면 <strong>Ctrl+Shift+R</strong>(맥은 <strong>⌘+Shift+R</strong>)로
+    강력 새로고침하세요. 휴대폰은 브라우저를 완전히 닫았다 다시 열면 됩니다.</p>
+  </div>
+
+  <div class="card">
+    <h4>✍️ 메모를 적극적으로 쓰세요</h4>
+    <p>메모는 검색 대상에 포함됩니다. <strong>선물용</strong>, <strong>결혼기념일용</strong>,
+    <strong>아버지 드릴 것</strong>처럼 적어두면 나중에 그 단어로 바로 찾을 수 있습니다.</p>
+  </div>
+
+  <div class="card">
+    <h4>🤖 AI가 틀릴 수도 있습니다</h4>
+    <p>이름 검색과 라벨 인식은 웹 정보를 바탕으로 하기 때문에 가끔 틀립니다.
+    특히 <strong>시장가</strong>는 참고용으로만 보시고, 이상하면 직접 고쳐주세요.</p>
+  </div>
+</section>
+
+<footer>
+  🍷 CAVE &middot; <a href="./">앱으로 돌아가기</a>
+</footer>
+
+</div>
+</body>
+</html>
