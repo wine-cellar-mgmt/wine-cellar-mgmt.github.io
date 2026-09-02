@@ -12,10 +12,10 @@ async function callVisionAPI(messages, maxTokens = 2000, tools = null, vision = 
   return callProxy(messages, maxTokens, tools)
 }
 
-export function BulkImportModal({ onAddMany, onClose }) {
+export function BulkImportModal({ onAddMany, onClose, showWhisky = true }) {
   const [step, setStep] = useState(1)
   const [category, setCategory] = useState('wine')
-  const [cellarId, setCellarId] = useState('vindis1')
+  const [cellarId, setCellarId] = useState(CELLARS[0]?.id || '')
   const [slot, setSlot] = useState('1')
   const [photos, setPhotos] = useState([])
   const [wineList, setWineList] = useState([])
@@ -23,12 +23,14 @@ export function BulkImportModal({ onAddMany, onClose }) {
   const [enrichProgress, setEnrichProgress] = useState(0)
   const curCellar = cellarById(cellarId)
   const whisky = category === 'whisky'
-  // 카테고리에 맞는 셀러만 노출 (위스키 → 진열장, 와인 → 셀러)
-  const cellarOptions = CELLARS.filter(c => whisky === c.id.startsWith('shelf_'))
+  // 카테고리에 맞는 셀러만 노출 (위스키 → 진열장, 와인 → 셀러).
+  // 위스키를 쓰지 않는 계정은 진열장 구분이 없으므로 전체 셀러를 그대로 보여준다.
+  const filtered = CELLARS.filter(c => whisky === c.id.startsWith('shelf_'))
+  const cellarOptions = showWhisky && filtered.length ? filtered : CELLARS
 
   function switchCategory(cat) {
     setCategory(cat)
-    const first = CELLARS.find(c => (cat === 'whisky') === c.id.startsWith('shelf_'))
+    const first = CELLARS.find(c => (cat === 'whisky') === c.id.startsWith('shelf_')) || CELLARS[0]
     if (first) { setCellarId(first.id); setSlot('1') }
   }
 
@@ -233,7 +235,7 @@ ${priceGuardText()}
             <p style={{ fontSize: '0.85rem', color: T.text, lineHeight: 1.7, marginBottom: 16 }}>
               촬영한 <strong style={{ color: T.cream }}>셀러와 칸 번호</strong>를 선택하세요. 한 칸씩 진행합니다.
             </p>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {showWhisky && <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {CATEGORIES.map(c => (
                 <button key={c.id} onClick={() => switchCategory(c.id)} style={{
                   flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
@@ -243,7 +245,7 @@ ${priceGuardText()}
                   fontSize: '0.85rem', fontWeight: 600,
                 }}>{c.icon} {c.label}</button>
               ))}
-            </div>
+            </div>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 28 }}>
               <div><label style={lbl}>셀러</label><select value={cellarId} onChange={e => { setCellarId(e.target.value); setSlot('1') }}>{cellarOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div><label style={lbl}>칸 번호</label><select value={slot} onChange={e => setSlot(e.target.value)}>{getSlots(curCellar).map(s => <option key={s} value={s}>{s}번 칸</option>)}</select></div>

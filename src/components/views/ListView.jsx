@@ -53,7 +53,7 @@ ${priceGuardText(prevPrice)}
 }
 
 // ── List View ────────────────────────────────────────────────────
-export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onRename, onMerge }) {
+export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onRename, onMerge, showWhisky = true }) {
   const mobile = useIsMobile()
   const [sort, setSort] = useState('name')
   const [filterCellar, setFilterCellar] = useState('')
@@ -190,11 +190,13 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
               </button>
             </div>
           )}
-          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
-            <option value="">전체 종류</option>
-            <option value="wine">🍷 와인</option>
-            <option value="nonwine">🥃 위스키·기타</option>
-          </select>
+          {showWhisky && (
+            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
+              <option value="">전체 종류</option>
+              <option value="wine">🍷 와인</option>
+              <option value="nonwine">🥃 위스키·기타</option>
+            </select>
+          )}
           <select value={filterCellar} onChange={e => setFilterCellar(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
             <option value="">전체 셀러</option>
             {CELLARS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

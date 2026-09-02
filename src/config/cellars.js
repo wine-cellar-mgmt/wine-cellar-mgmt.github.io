@@ -1,10 +1,19 @@
-export const CELLARS = [
+// 셀러 구성은 계정별로 다르다(profiles.cellars). 로그인 시 App.jsx가 setCellars로 주입하고,
+// 프로필이 없거나 비어 있으면 아래 기본 구성을 쓴다.
+// cellarById/getSlots는 호출 시점에 CELLARS를 읽으므로, 배열만 갈아끼우면 전 화면에 반영된다.
+export const DEFAULT_CELLARS = [
   { id: 'vindis1',  name: 'VINDIS #1', slots: 10, maxPerSlot: 20 },
   { id: 'vindis2',  name: 'VINDIS #2', slots: 10, maxPerSlot: 20 },
   { id: 'eurocave', name: 'EUROCAVE',  slots: 15, maxPerSlot: 12 },
   { id: 'shelf_study',  name: '서재 진열장', slots: 2, maxPerSlot: 25 },
   { id: 'shelf_living', name: '거실 진열장', slots: 6, maxPerSlot: 20 },
 ]
+
+export let CELLARS = DEFAULT_CELLARS
+
+export function setCellars(list) {
+  CELLARS = Array.isArray(list) && list.length ? list : DEFAULT_CELLARS
+}
 
 // ── 카테고리 (와인/위스키) ───────────────────────────────────────
 export const CATEGORIES = [
@@ -34,7 +43,7 @@ export const T = {
 }
 
 let _seq = 0
-export const uid = () => `${Date.now()}_${++_seq}`
+export const uid = () => `${Date.now()}_${++_seq}_${Math.random().toString(36).slice(2, 6)}`
 export const krw = n => n ? '₩' + Number(n).toLocaleString('ko-KR') : '-'
 export const kdate = d => d ? new Date(d).toLocaleDateString('ko-KR') : '-'
 

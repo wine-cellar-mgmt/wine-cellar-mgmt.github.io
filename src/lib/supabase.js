@@ -75,6 +75,31 @@ export async function loadSharedWine(token) {
   return dbToWine(Array.isArray(data) ? data[0] : data)
 }
 
+// ── profiles (계정별 설정 — 셀러 구성, 위스키 표시) ──────────────
+// user_id는 DB 기본값 auth.uid()가 채우므로 wineToDb 등 매퍼는 손대지 않는다.
+export async function loadProfile() {
+  const { data, error } = await supabase.from('profiles').select('*').maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// 최초 로그인 계정 — 기본 프로필 생성 (셀러는 비워 두고 설정에서 등록)
+export async function createDefaultProfile() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ show_whisky: false, cellars: [] })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function saveProfile(updates) {
+  const { data, error } = await supabase.from('profiles').update(updates).select().single()
+  if (error) throw error
+  return data
+}
+
 // ── wines ────────────────────────────────────────────────────────
 export async function loadWines() {
   const { data, error } = await supabase.from('wines').select('*').order('created_at', { ascending: true })

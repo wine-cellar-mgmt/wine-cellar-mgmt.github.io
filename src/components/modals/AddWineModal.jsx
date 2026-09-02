@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { CELLARS, getSlots, cellarById, T, uid, krw, callAI, BOTTLE_SIZES, CATEGORIES, priceGuardText } from '../../config/cellars.js'
 import { Btn, lbl, ImagePicker } from '../ui.jsx'
 
-export default function AddWineModal({ pre = {}, onAdd, onClose }) {
+export default function AddWineModal({ pre = {}, onAdd, onClose, showWhisky = true }) {
   const today = new Date().toISOString().split('T')[0]
-  const initCellar = pre.cellarId || 'vindis1'
+  // 셀러 구성은 계정별로 다르다 — 하드코딩 대신 첫 셀러를 기본값으로
+  const initCellar = pre.cellarId || CELLARS[0]?.id || ''
   const [form, setForm] = useState({
     name: '', vintage: '', qty: 1, price: '', purchaseDate: today,
     cellarId: initCellar, slot: pre.slot || '1',
@@ -25,12 +26,14 @@ export default function AddWineModal({ pre = {}, onAdd, onClose }) {
   function setCategory(cat) {
     setForm(p => {
       const next = { ...p, category: cat }
-      if (cat === 'whisky' && !p.cellarId.startsWith('shelf_')) {
-        next.cellarId = 'shelf_living'; next.slot = '1'
+      const shelf = CELLARS.find(c => c.id.startsWith('shelf_'))
+      const rack  = CELLARS.find(c => !c.id.startsWith('shelf_'))
+      if (cat === 'whisky' && !p.cellarId.startsWith('shelf_') && shelf) {
+        next.cellarId = shelf.id; next.slot = '1'
         if (Number(p.bottleSize) === 750) next.bottleSize = 700
       }
-      if (cat === 'wine' && p.cellarId.startsWith('shelf_')) {
-        next.cellarId = 'vindis1'; next.slot = '1'
+      if (cat === 'wine' && p.cellarId.startsWith('shelf_') && rack) {
+        next.cellarId = rack.id; next.slot = '1'
         if (Number(p.bottleSize) === 700) next.bottleSize = 750
       }
       return next
@@ -130,8 +133,8 @@ vivino USD 원본 → vivinoPrice
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, fontSize: '1.2rem' }}>✕</button>
         </div>
 
-        {/* 카테고리 선택 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {/* 카테고리 선택 — 위스키를 쓰지 않는 계정에는 표시하지 않는다 */}
+        {showWhisky && <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           {CATEGORIES.map(c => (
             <button key={c.id} onClick={() => setCategory(c.id)} style={{
               flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer',
@@ -141,7 +144,7 @@ vivino USD 원본 → vivinoPrice
               fontSize: '0.85rem', fontWeight: 600,
             }}>{c.icon} {c.label}</button>
           ))}
-        </div>
+        </div>}
 
         {/* Name + AI */}
         <div style={{ marginBottom: 12 }}>

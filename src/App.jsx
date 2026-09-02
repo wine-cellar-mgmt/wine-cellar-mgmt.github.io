@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
-import { T, uid } from './config/cellars.js'
+import { T, uid, CELLARS, setCellars, DEFAULT_CELLARS } from './config/cellars.js'
 import {
   loadWines, loadDrinkLog,
   upsertWine, upsertWines, deleteWine, deleteWines, insertDrink, deleteDrink,
   insertDrinkSession, insertDrinksBatch,
   insertPriceHistory, uploadImage,
+  loadProfile, createDefaultProfile,
   signIn, getSession, onAuthChange
 } from './lib/supabase.js'
 
@@ -91,11 +92,12 @@ export default function App() {
   const [session, setSession]   = useState(undefined) // undefined=확인중, null=로그아웃, obj=로그인
   const [wines, setWines]       = useState([])
   const [drinkLog, setDrinkLog] = useState([])
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading]   = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
 
   const [tab, setTab]         = useState('dash')
-  const [cellarId, setCellarId] = useState('vindis1')
+  const [cellarId, setCellarId] = useState(() => CELLARS[0]?.id || '')
 
   const [modal, setModal]     = useState(null) // {type, ...data}
   const [toast, setToast]     = useState(null)
@@ -140,6 +142,19 @@ export default function App() {
     if (!session) return
     async function init() {
       setLoading(true)
+      // 셀러 구성은 계정마다 다르다 — 데이터를 그리기 전에 먼저 주입한다.
+      // 실패해도 기본 셀러로 앱은 계속 동작한다.
+      try {
+        let p = await loadProfile()
+        if (!p) p = await createDefaultProfile()
+        setCellars(p.cellars)
+        setProfile(p)
+        setCellarId(CELLARS[0]?.id || '')
+      } catch (e) {
+        console.warn('[Profile] 로드 실패 — 기본 설정 사용:', e)
+        setCellars(DEFAULT_CELLARS)
+        setProfile({ show_whisky: true, cellars: DEFAULT_CELLARS })
+      }
       try {
         const [w, l] = await Promise.all([loadWines(), loadDrinkLog()])
         applyWines(w); setDrinkLog(l)
@@ -463,6 +478,14 @@ export default function App() {
     }
   }
 
+  // 설정에서 프로필(셀러 구성·위스키 표시)이 바뀌면 즉시 화면에 반영
+  const applyProfile = useCallback((p) => {
+    setCellars(p.cellars)
+    setProfile(p)
+    // 지금 보고 있던 셀러가 삭제됐으면 첫 셀러로 되돌린다
+    setCellarId(prev => CELLARS.some(c => c.id === prev) ? prev : (CELLARS[0]?.id || ''))
+  }, [])
+
   // ── Modal helpers ────────────────────────────────────────────
   const openAdd    = (pre = {}) => setModal({ type: 'add', pre })
   const openDetail = (id)       => setModal({ type: 'detail', id })
@@ -480,6 +503,7 @@ export default function App() {
 
   if (loading) return <Loading msg="🍷 셀러를 열고 있습니다..." />
 
+  const showWhisky = profile?.show_whisky !== false
   const shared = { wines, drinkLog, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, openDrink, goSlot }
 
   return (
@@ -499,21 +523,21 @@ export default function App() {
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
         {tab === 'producer' && <ProducerView {...shared} onUpdate={updateWine} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
-        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} />}
+        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} showWhisky={showWhisky} />}
         {tab === 'stats'  && <StatisticsView wines={wines} drinkLog={drinkLog} />}
       </main>
 
       {/* Modals */}
       {modal?.type === 'add' && (
-        <AddWineModal pre={modal.pre || {}} onAdd={async w => { await addWine(w); setModal(null) }} onClose={() => setModal(null)} />
+        <AddWineModal showWhisky={showWhisky} pre={modal.pre || {}} onAdd={async w => { await addWine(w); setModal(null) }} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'bulk' && (
         <Suspense fallback={null}>
-          <BulkImportModal onAddMany={addManyWines} onClose={() => setModal(null)} />
+          <BulkImportModal showWhisky={showWhisky} onAddMany={addManyWines} onClose={() => setModal(null)} />
         </Suspense>
       )}
       {modal?.type === 'settings' && (
-        <SettingsModal wines={wines} drinkLog={drinkLog} onClose={() => setModal(null)} />
+        <SettingsModal wines={wines} drinkLog={drinkLog} profile={profile} onProfileChange={applyProfile} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'drink' && (
         <DrinkModal wine={modal.wine} onConfirm={record => { drinkWine(modal.wine, record); setModal(null) }} onClose={() => setModal(null)} />
