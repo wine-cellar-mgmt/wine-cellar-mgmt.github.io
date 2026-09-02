@@ -86,7 +86,7 @@ export function SettingsModal({ wines = [], drinkLog = [], profile = null, onPro
       setSaveMsg('✓ 저장됨')
     } catch (e) {
       console.error('[Profile] 셀러 저장 실패:', e)
-      setSaveMsg('⚠ 저장 실패')
+      setSaveMsg(`⚠ 저장 실패 — ${e.message || '알 수 없는 오류'}`)
     }
     setSaving(false)
   }

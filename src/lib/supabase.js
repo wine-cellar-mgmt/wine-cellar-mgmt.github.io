@@ -98,8 +98,17 @@ export async function createDefaultProfile() {
   return data
 }
 
+// PostgREST는 WHERE 절 없는 UPDATE를 거부한다("UPDATE requires a WHERE clause", 21000).
+// RLS가 어차피 자기 행만 허용하지만, 필터를 명시해야 요청이 통과한다.
 export async function saveProfile(updates) {
-  const { data, error } = await supabase.from('profiles').update(updates).select().single()
+  const session = await getSession()
+  if (!session) throw new Error('로그인이 필요합니다')
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', session.user.id)
+    .select()
+    .single()
   if (error) throw error
   return data
 }
