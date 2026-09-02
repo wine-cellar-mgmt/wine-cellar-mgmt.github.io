@@ -112,7 +112,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                   🥂 선택한 {drinkableSelected.length}병 함께 마심
                 </button>
                 {whiskyExcluded > 0 && <span style={{ fontSize: '0.68rem', color: T.muted }}>위스키 {whiskyExcluded}종은 제외(개별 시음 기록 이용)</span>}
-                <span style={{ fontSize: '0.68rem', color: T.muted }}>다른 셀러 와인과 함께 마셨다면 「보관 목록」 탭에서 선택하세요</span>
+                <span style={{ fontSize: '0.68rem', color: T.muted }}>다른 셀러 와인과 함께 마셨다면 「전체 목록」 탭에서 선택하세요</span>
               </div>
             )}
             {confirmDelete ? (
