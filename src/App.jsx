@@ -153,7 +153,7 @@ export default function App() {
       } catch (e) {
         console.warn('[Profile] 로드 실패 — 기본 설정 사용:', e)
         setCellars(DEFAULT_CELLARS)
-        setProfile({ show_whisky: true, cellars: DEFAULT_CELLARS })
+        setProfile({ show_whisky: true, allow_bulk_price: true, cellars: DEFAULT_CELLARS })
       }
       try {
         const [w, l] = await Promise.all([loadWines(), loadDrinkLog()])
@@ -504,6 +504,7 @@ export default function App() {
   if (loading) return <Loading msg="🍷 셀러를 열고 있습니다..." />
 
   const showWhisky = profile?.show_whisky !== false
+  const allowBulkPrice = profile?.allow_bulk_price === true
   const shared = { wines, drinkLog, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, openDrink, goSlot }
 
   return (
@@ -523,7 +524,7 @@ export default function App() {
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
         {tab === 'producer' && <ProducerView {...shared} onUpdate={updateWine} />}
         {tab === 'search' && <SearchView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} />}
-        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} showWhisky={showWhisky} />}
+        {tab === 'list'   && <ListView wines={wines} openDetail={openDetail} openDrink={openDrink} goSlot={goSlot} onDeleteMany={removeManyWines} onRename={renameWines} onMerge={mergeWines} showWhisky={showWhisky} allowBulkPrice={allowBulkPrice} />}
         {tab === 'stats'  && <StatisticsView wines={wines} drinkLog={drinkLog} />}
       </main>
 

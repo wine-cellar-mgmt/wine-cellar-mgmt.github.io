@@ -48,8 +48,9 @@ CAVE는 개인 와인 셀러 관리 PWA다. 이 문서는 작업 시 배경 맥�
   vivino_price, vivino_rating, source('seed'|'app'|'auto'), created_at.
   앱에서 가격 변경 시('app') + 매달 6일 Cowork 스케줄('auto') 기록. 2026-07-03 현재가 시드 150건.
 - **profiles**: id(uuid, →auth.users, 기본값 auth.uid()), show_whisky(bool, 새 계정은 false),
-  cellars(jsonb — `[{id,name,slots,maxPerSlot}]`), created_at.
-  계정별 셀러 구성과 위스키 UI 표시 여부. 앱이 최초 로그인 시 없으면 자동 생성한다.
+  allow_bulk_price(bool, 새 계정은 false), cellars(jsonb — `[{id,name,slots,maxPerSlot}]`), created_at.
+  계정별 셀러 구성·위스키 UI 표시·시장가 일괄 업데이트 허용 여부.
+  앱이 최초 로그인 시 없으면 자동 생성한다.
 
 ## 파일 구조
 ```
@@ -96,6 +97,9 @@ src/
 ## 핵심 규칙 요약
 - **AI 호출**: 전부 callProxy 경유, 모델 claude-sonnet-4-6, max_tokens 2000+(이미지 3000),
   web_search 도구 + pause_turn 재호출(최대 4회), JSON은 마지막 완성 객체 파싱.
+  ※ 모든 계정이 소유자의 ANTHROPIC_API_KEY로 과금된다. ListView의 시장가 일괄 업데이트는
+  와인 수만큼 web_search를 호출하는 최고 비용 기능이라 `profiles.allow_bulk_price`로 막혀 있다.
+  비용이 큰 반복 호출 기능을 새로 만들면 같은 방식으로 계정별 플래그를 건다.
 - **가격 표시**: wine_searcher_price = 한국 시장가(₩), vivino_price = 글로벌($).
   두 통화를 섞어 평균 내지 않는다. 시장가는 750ml 1병 기준.
 - **병 용량**: bottle_size ml 정수, 기본 750. bottleBadge는 750/미설정이면 null,
@@ -206,10 +210,15 @@ src/
     **위스키 코드는 삭제하지 않았다** — show_whisky를 켜면 그대로 살아난다.
   * uid()에 랜덤 접미사 추가 — 여러 계정이 같은 밀리초에 추가할 때 PK 충돌 방지.
   * 새 계정은 STARTER_CELLARS(`내 셀러` 1개) + show_whisky=false로 시작한다.
+  * 후속(2026-09-03): profiles.allow_bulk_price 추가 — 시장가 일괄 업데이트를 소유자 전용으로.
+    saveProfile의 UPDATE에 `.eq('id', ...)` 누락으로 설정 저장이 실패하던 버그 수정
+    (PostgREST는 WHERE 없는 UPDATE를 21000 `UPDATE requires a WHERE clause`로 거부한다 —
+    RLS가 있어도 필터를 반드시 명시할 것).
 
 ## 아직 미적용 (다음 작업 후보)
 - 취향 프로필 (음주 기록 기반 선호 품종·지역·평점 분석)
 - AI 추천("오늘 뭐 마실까")
 - 위시리스트
 - 친구 계정용 공개 갤러리 (지금 get_public_wines()는 내 와인만 반환하도록 고정돼 있음)
-- 계정별 AI 사용 제한 (profiles.allow_ai) — 현재 모든 계정이 내 ANTHROPIC_API_KEY로 과금됨
+- 계정별 AI 사용 제한 확대 — 지금은 시장가 일괄 업데이트만 막혀 있다(allow_bulk_price).
+  사진 일괄 입력·단건 검색은 모든 계정이 소유자 키로 사용 가능

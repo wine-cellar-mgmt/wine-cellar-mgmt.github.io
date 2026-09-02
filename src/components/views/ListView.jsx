@@ -53,7 +53,7 @@ ${priceGuardText(prevPrice)}
 }
 
 // ── List View ────────────────────────────────────────────────────
-export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onRename, onMerge, showWhisky = true }) {
+export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, onRename, onMerge, showWhisky = true, allowBulkPrice = true }) {
   const mobile = useIsMobile()
   const [sort, setSort] = useState('name')
   const [filterCellar, setFilterCellar] = useState('')
@@ -173,8 +173,8 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
               </button>
             )
           )}
-          {/* 시장가 일괄 업데이트 */}
-          {priceUpdating ? (
+          {/* 시장가 일괄 업데이트 — 와인 수만큼 web_search를 호출하므로 허용된 계정에만 노출 */}
+          {allowBulkPrice && (priceUpdating ? (
             <div style={{ background: T.gold + '22', border: `1px solid ${T.gold}66`, borderRadius: 8, padding: '6px 14px', fontSize: '0.78rem', color: T.gold, minWidth: 200 }}>
               💰 {priceProgress.current}/{priceProgress.total} — {priceProgress.name.slice(0, 15)}{priceProgress.name.length > 15 ? '...' : ''}
             </div>
@@ -189,7 +189,7 @@ export function ListView({ wines, openDetail, openDrink, goSlot, onDeleteMany, o
                 🔄 전체 재검색
               </button>
             </div>
-          )}
+          ))}
           {showWhisky && (
             <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ width: 'auto', fontSize: '0.8rem', padding: '7px 10px' }}>
               <option value="">전체 종류</option>
