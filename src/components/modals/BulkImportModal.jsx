@@ -104,6 +104,7 @@ ${priceGuardText()}
 
   async function handleFiles(e) {
     const files = Array.from(e.target.files || [])
+    e.target.value = ''  // 같은 입력으로 연속 촬영해도 onChange가 다시 뜨도록 초기화
     if (!files.length) return
 
     const newPhotos = files.map(f => ({ id: uid(), file: f, dataUrl: null, status: 'pending' }))
@@ -260,11 +261,18 @@ ${priceGuardText()}
             <div style={{ background: T.surface, border: `2px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: '2rem', marginBottom: 8 }}>📸</div>
               <div style={{ fontSize: '0.875rem', color: T.text, marginBottom: 4 }}><strong style={{ color: T.cream }}>{cellarById(cellarId)?.name} · {slot}번 칸</strong> {whisky ? '위스키·증류주' : '와인'} 사진</div>
-              <div style={{ fontSize: '0.78rem', color: T.muted, marginBottom: 16 }}>여러 장 선택 가능 · 라벨이 잘 보일수록 정확합니다</div>
-              <label style={{ display: 'inline-block', background: T.gold, color: T.bg, border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
-                📷 사진 선택 / 촬영
-                <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFiles} />
-              </label>
+              <div style={{ fontSize: '0.78rem', color: T.muted, marginBottom: 16 }}>촬영은 한 장씩, 선택은 여러 장 가능 · 라벨이 잘 보일수록 정확합니다</div>
+              {/* Android는 multiple이 붙은 파일 입력을 갤러리로만 보내므로 촬영(capture, 1장)과 선택(multiple)을 분리 */}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <label style={{ display: 'inline-block', background: T.gold, color: T.bg, border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
+                  📷 촬영
+                  <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFiles} />
+                </label>
+                <label style={{ display: 'inline-block', background: T.surface, color: T.cream, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 20px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
+                  🖼 사진 선택
+                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFiles} />
+                </label>
+              </div>
             </div>
             {photos.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
