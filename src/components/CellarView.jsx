@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { CELLARS, getSlots, cellarById, T, krw, getDrinkingStatus, bottleBadge, openedBadge } from '../config/cellars.js'
 import { Btn, useIsMobile } from './ui.jsx'
 
-export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, onDrink, onDeleteMany, onDrinkMany }) {
+export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCellarId, openAdd, openDetail, onDrink, onDeleteMany, onDrinkMany, onMoveMany }) {
   const [expanded, setExpanded] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [moveCellar, setMoveCellar] = useState(cellarId)
+  const [moveSlot, setMoveSlot] = useState('1')
   const mobile = useIsMobile()
   const c = cellarById(cellarId)
   const slots = getSlots(c)
@@ -47,6 +50,27 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
   function clearSelection() {
     setSelected(new Set())
     setConfirmDelete(false)
+    setMoveOpen(false)
+  }
+
+  // 선택 이동 — 목적지 칸 여유 계산 (이미 그 칸에 있는 선택 병은 늘어나지 않으므로 제외)
+  const moveCellarObj = cellarById(moveCellar) || c
+  const moveIncoming = selectedWineObjs
+    .filter(w => !(w.cellarId === moveCellar && String(w.slot) === String(moveSlot)))
+    .reduce((s, w) => s + (w.qty || 1), 0)
+  const moveAfter = bottlesIn(moveCellar, moveSlot) + moveIncoming
+  const moveOver = moveAfter > (moveCellarObj.maxPerSlot || Infinity)
+
+  function openMove() {
+    setMoveCellar(cellarId)
+    setMoveSlot(expanded || '1')
+    setConfirmDelete(false)
+    setMoveOpen(true)
+  }
+
+  async function handleMoveSelected() {
+    await onMoveMany([...selected], moveCellar, moveSlot)
+    clearSelection()
   }
 
   async function handleDeleteSelected() {
@@ -113,7 +137,7 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
             </span>
             <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: T.muted, fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}>선택 해제</button>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {drinkableSelected.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                 <button onClick={handleDrinkSelected} style={{ background: T.wine + '33', border: `1px solid ${T.wine}`, color: T.wineLight, borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
@@ -123,6 +147,9 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                 <span style={{ fontSize: '0.68rem', color: T.muted }}>셀러 탭을 옮겨도 선택은 그대로 — 여러 셀러 병을 함께 고를 수 있습니다</span>
               </div>
             )}
+            <button onClick={() => moveOpen ? setMoveOpen(false) : openMove()} style={{ background: moveOpen ? T.gold + '33' : 'transparent', border: `1px solid ${T.gold}88`, color: T.gold, borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
+              📦 선택 이동
+            </button>
             {confirmDelete ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#c0392b22', border: '1px solid #c0392b', borderRadius: 8, padding: '4px 10px' }}>
                 <span style={{ fontSize: '0.78rem', color: '#e07070' }}>{selectedWineObjs.length}개 삭제?{selectedElsewhere > 0 ? ' (다른 셀러 포함)' : ''}</span>
@@ -130,11 +157,29 @@ export default function CellarView({ wines, winesIn, bottlesIn, cellarId, setCel
                 <button onClick={() => setConfirmDelete(false)} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: '3px 8px', fontSize: '0.78rem', cursor: 'pointer' }}>취소</button>
               </div>
             ) : (
-              <button onClick={() => setConfirmDelete(true)} style={{ background: '#c0392b22', border: '1px solid #c0392b88', color: '#e07070', borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
+              <button onClick={() => { setConfirmDelete(true); setMoveOpen(false) }} style={{ background: '#c0392b22', border: '1px solid #c0392b88', color: '#e07070', borderRadius: 8, padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
                 🗑 선택 삭제
               </button>
             )}
           </div>
+          {moveOpen && (
+            <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${T.border}`, paddingTop: 10 }}>
+              <span style={{ fontSize: '0.8rem', color: T.cream }}>{selectedWineObjs.reduce((s, w) => s + (w.qty || 1), 0)}병을</span>
+              <select value={moveCellar} onChange={e => { setMoveCellar(e.target.value); setMoveSlot('1') }}
+                style={{ fontSize: '0.8rem', padding: '4px 8px', width: 'auto' }}>
+                {CELLARS.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
+              </select>
+              <select value={moveSlot} onChange={e => setMoveSlot(e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '4px 8px', width: 'auto' }}>
+                {getSlots(moveCellarObj).map(s => <option key={s} value={s}>{s}번 칸 ({bottlesIn(moveCellar, s)}/{moveCellarObj.maxPerSlot})</option>)}
+              </select>
+              <span style={{ fontSize: '0.8rem', color: T.cream }}>으로</span>
+              <button onClick={handleMoveSelected} disabled={!moveIncoming} style={{ background: T.gold, color: T.bg, border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: '0.8rem', cursor: moveIncoming ? 'pointer' : 'default', fontWeight: 600, opacity: moveIncoming ? 1 : 0.5 }}>이동</button>
+              <button onClick={() => setMoveOpen(false)} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.muted, borderRadius: 6, padding: '4px 10px', fontSize: '0.8rem', cursor: 'pointer' }}>취소</button>
+              {moveOver && <span style={{ fontSize: '0.72rem', color: '#e07070' }}>⚠ 이동 후 {moveAfter}병 — 칸 최대 {moveCellarObj.maxPerSlot}병 초과</span>}
+              {!moveIncoming && <span style={{ fontSize: '0.72rem', color: T.muted }}>선택한 병이 이미 이 칸에 있습니다</span>}
+            </div>
+          )}
         </div>
       )}
 

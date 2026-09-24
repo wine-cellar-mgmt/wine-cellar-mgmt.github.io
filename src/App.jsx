@@ -281,6 +281,51 @@ export default function App() {
     showToast(`🚚 ${qty}병 이동 완료`, 'success')
   }
 
+  // 여러 병 일괄 이동 — 셀러 뷰 다중 선택에서 사용. moveWine과 같은 규칙으로 목적지에
+  // 같은 와인(이름+빈티지)이 있으면 병 수를 합친다. 배치 API로 1~2번 왕복.
+  async function moveManyWines(ids, toCellarId, toSlot) {
+    const prev = winesRef.current
+    const isSame = (a, b) =>
+      (a.name || '').trim() === (b.name || '').trim() &&
+      (a.vintage || null) === (b.vintage || null)
+
+    let work = prev.slice()
+    const toDelete = []
+    const changed = new Map()
+    let moved = 0
+    for (const id of ids) {
+      const wine = work.find(w => w.id === id)
+      if (!wine) continue
+      if (wine.cellarId === toCellarId && String(wine.slot) === String(toSlot)) continue
+      const target = work.find(w =>
+        w.id !== wine.id && w.cellarId === toCellarId && String(w.slot) === String(toSlot) && isSame(w, wine))
+      if (target) {
+        const merged = { ...target, qty: (target.qty || 1) + (wine.qty || 1) }
+        work = work.filter(w => w.id !== wine.id).map(w => w.id === target.id ? merged : w)
+        changed.set(merged.id, merged)
+        changed.delete(wine.id)
+        toDelete.push(wine.id)
+      } else {
+        const relocated = { ...wine, cellarId: toCellarId, slot: toSlot }
+        work = work.map(w => w.id === wine.id ? relocated : w)
+        changed.set(relocated.id, relocated)
+      }
+      moved += wine.qty || 1
+    }
+    if (!moved) { showToast('이미 그 칸에 있는 병들입니다'); return }
+
+    applyWines(() => work)
+    try {
+      if (changed.size) await upsertWines([...changed.values()])
+      if (toDelete.length) await deleteWines(toDelete)
+      setSyncStatus('synced')
+      showToast(`🚚 ${moved}병 이동 완료`, 'success')
+    } catch {
+      applyWines(() => prev)
+      showToast('⚠ 이동 실패 — 되돌렸습니다', 'error')
+    }
+  }
+
   async function drinkWine(wine, record) {
     const base = winesRef.current.find(w => w.id === wine.id) || wine
 
@@ -523,7 +568,7 @@ export default function App() {
 
       <main style={{ flex: 1, padding: '24px 28px', maxWidth: 1060, margin: '0 auto', width: '100%', paddingBottom: 100 }}>
         {tab === 'dash'   && <Dashboard {...shared} setTab={setTab} openDetail={openDetail} />}
-        {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} onDrinkMany={openDrinkMany} onDeleteMany={removeManyWines} />}
+        {tab === 'cellar' && <CellarView {...shared} onDrink={openDrink} onDrinkMany={openDrinkMany} onDeleteMany={removeManyWines} onMoveMany={moveManyWines} />}
         {tab === 'drinking' && <DrinkingWindowView wines={wines} openDetail={openDetail} onUpdate={updateWine} />}
         {tab === 'log'    && <DrinkLogView drinkLog={drinkLog} onDelete={removeDrink} onAddExternal={() => setModal({ type: 'externalDrink' })} />}
         {tab === 'producer' && <ProducerView {...shared} onUpdate={updateWine} />}
