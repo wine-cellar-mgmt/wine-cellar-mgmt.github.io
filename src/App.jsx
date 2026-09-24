@@ -138,8 +138,12 @@ export default function App() {
   }, [])
 
   // ── Load data (로그인 후에만) ─────────────────────────────────
+  // 세션 객체가 아니라 사용자 ID에 의존한다. Supabase는 탭이 다시 보일 때마다
+  // (카메라 촬영 후 복귀 등) SIGNED_IN을 새 세션 객체로 다시 보내는데, 객체에 의존하면
+  // 그때마다 전체 재로딩 → 로딩 화면 → 열려 있던 모달(사진 일괄 입력 등)이 초기화된다.
+  const userId = session?.user?.id
   useEffect(() => {
-    if (!session) return
+    if (!userId) return
     async function init() {
       setLoading(true)
       // 셀러 구성은 계정마다 다르다 — 데이터를 그리기 전에 먼저 주입한다.
@@ -167,7 +171,7 @@ export default function App() {
       setLoading(false)
     }
     init()
-  }, [session])
+  }, [userId])
 
   // ── Helpers ──────────────────────────────────────────────────
   const winesIn  = (cid, slot) => wines.filter(w => w.cellarId === cid && w.slot === slot)
